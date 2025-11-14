@@ -53,6 +53,7 @@ npm -v
 
 # Install backend dependencies
 npm install
+npm install pg dotenv
 
 npm start
 # Server will run at http://localhost:5000
