@@ -53,6 +53,7 @@ npm -v
 
 # Install backend dependencies
 npm install
+npm install cors
 npm install pg dotenv
 
 npm start
