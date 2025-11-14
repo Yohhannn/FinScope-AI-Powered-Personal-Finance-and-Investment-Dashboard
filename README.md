@@ -1,9 +1,3 @@
-# README.md
-
----
-title: "FinScope"
-description: "AI-Powered Personal Finance & Investment Dashboard"
----
 
 # 🚀 FinScope
 
