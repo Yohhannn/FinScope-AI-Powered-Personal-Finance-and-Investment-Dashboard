@@ -1,3 +1,9 @@
+# README.md
+
+---
+title: "FinScope"
+description: "AI-Powered Personal Finance & Investment Dashboard"
+---
 
 # 🚀 FinScope
 
@@ -33,12 +39,32 @@ FinScope is a comprehensive web application designed to empower users to take co
 
 ## ⚙️ Getting Started
 
-Since the base project structure is already set up, follow these steps to install dependencies and get the application running.
+Follow these steps to install dependencies and run the application.
 
 ### 1. Prerequisites
 
-Make sure you have Node.js installed on your machine.  
+Make sure Node.js and npm are installed:
 
 ```bash
 node -v   # Should be v14 or higher
 npm -v
+
+
+
+# Install backend dependencies
+npm install
+
+npm start
+# Server will run at http://localhost:5000
+
+
+# Navigate to the frontend folder
+cd frontend
+
+# Install frontend dependencies
+npm install
+
+npm start
+# Development server will start at http://localhost:3000
+
+
