@@ -49,15 +49,22 @@ Make sure Node.js and npm are installed:
 node -v   # Should be v14 or higher
 npm -v
 
-
+## BACKEND
 
 # Install backend dependencies
 npm install
 npm install cors
 npm install pg dotenv
 
+Setup .env file. (example is in there named .env.example
+
 npm start
 # Server will run at http://localhost:5000
+
+
+
+## FRONTEND
+
 
 
 # Navigate to the frontend folder
