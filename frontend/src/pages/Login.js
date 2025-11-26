@@ -1,20 +1,20 @@
 import AuthLayout from "../components/AuthLayout";
 import { useState } from "react";
-// If you use React Router, import useNavigate
 import { useNavigate } from "react-router-dom";
 
 export default function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [error, setError] = useState(""); // State for error messages
-    const navigate = useNavigate(); // Hook for redirection
+    const [error, setError] = useState(""); // Stores error messages
+    const navigate = useNavigate(); // Used to redirect user
 
     const handleLogin = async (e) => {
         e.preventDefault();
         setError(""); // Clear previous errors
 
         try {
-            const response = await fetch("http://localhost:5000/login", {
+            // 🟢 UPDATED URL to match MVC structure
+            const response = await fetch("http://localhost:5000/api/auth/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password }),
@@ -23,17 +23,13 @@ export default function Login() {
             const data = await response.json();
 
             if (response.ok) {
-                // 1. Login Success
+                // Success: Store token and redirect
                 console.log("Login Success:", data);
-
-                // 2. Store the token (important!)
                 localStorage.setItem("token", data.token);
                 localStorage.setItem("user", JSON.stringify(data.user));
-
-                // 3. Redirect user (e.g., to Dashboard)
                 navigate("/dashboard");
             } else {
-                // 4. Login Failed
+                // Fail: Show error from backend
                 setError(data.error || "Login failed");
             }
         } catch (err) {
@@ -48,7 +44,7 @@ export default function Login() {
                 <h2 className="text-3xl font-bold mb-4">Welcome back</h2>
                 <p className="text-gray-400 mb-6">Enter your credentials to access your account</p>
 
-                {/* Display Error Message if it exists */}
+                {/* Error Alert Box */}
                 {error && (
                     <div className="bg-red-500/10 border border-red-500 text-red-500 p-3 rounded mb-4 text-sm">
                         {error}
@@ -63,8 +59,8 @@ export default function Login() {
                             required
                             className="w-full p-3 rounded-lg bg-gray-700 focus:ring-2 ring-blue-500 outline-none"
                             placeholder="you@example.com"
-                            value={email}
                             onChange={(e) => setEmail(e.target.value)}
+                            value={email}
                         />
                     </div>
 
@@ -74,8 +70,8 @@ export default function Login() {
                             type="password"
                             required
                             className="w-full p-3 rounded-lg bg-gray-700 focus:ring-2 ring-blue-500 outline-none"
-                            value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                            value={password}
                         />
                     </div>
 

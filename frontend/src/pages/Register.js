@@ -18,13 +18,15 @@ export default function Register() {
         e.preventDefault();
         setError("");
 
+        // 1. Validation: Check passwords match
         if (form.password !== form.confirm) {
             setError("Passwords do not match");
             return;
         }
 
         try {
-            const response = await fetch("http://localhost:5000/register", {
+            // 🟢 UPDATED URL to match MVC structure
+            const response = await fetch("http://localhost:5000/api/auth/register", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -37,15 +39,16 @@ export default function Register() {
             const data = await response.json();
 
             if (response.ok) {
-                // SUCCESS: Redirect to Login Page
-                alert("Account created successfully! Please sign in."); // Optional user feedback
+                // Success: Redirect to Login so they can sign in
+                alert("Account created! Please log in.");
                 navigate("/login");
             } else {
+                // Fail: Show error from backend (e.g., "User already exists")
                 setError(data.error || "Registration failed");
             }
         } catch (err) {
-            console.error("Error:", err);
-            setError("Server error. Please try again later.");
+            console.error("Connection Error:", err);
+            setError("Server is not responding. Please try again later.");
         }
     };
 
@@ -53,10 +56,9 @@ export default function Register() {
         <AuthLayout>
             <div className="bg-gray-800 p-8 rounded-2xl w-full max-w-md shadow-lg">
                 <h2 className="text-3xl font-bold mb-4">Create account</h2>
-                <p className="text-gray-400 mb-6">
-                    Sign up to get started with FinScope
-                </p>
+                <p className="text-gray-400 mb-6">Sign up to get started with FinScope</p>
 
+                {/* Error Alert Box */}
                 {error && (
                     <div className="bg-red-500/10 border border-red-500 text-red-500 p-3 rounded mb-4 text-sm">
                         {error}
@@ -64,6 +66,7 @@ export default function Register() {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
+
                     <div>
                         <label className="block text-sm mb-1">Full Name</label>
                         <input

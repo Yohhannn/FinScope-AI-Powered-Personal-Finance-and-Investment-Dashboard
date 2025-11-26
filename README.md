@@ -72,6 +72,7 @@ cd frontend
 # Install frontend dependencies
 npm install
 npm install react-router-dom
+npm install lucide-react
 
 
 npm start
