@@ -72,6 +72,8 @@ cd frontend
 
 # Install frontend dependencies
 npm install
+npm install react-router-dom
+
 
 npm start
 # Development server will start at http://localhost:3000
