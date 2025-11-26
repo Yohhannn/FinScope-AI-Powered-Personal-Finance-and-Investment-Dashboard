@@ -1,6 +1,6 @@
 import React from 'react';
 
-// 1. Card Component
+// 1. Card
 export const Card = ({ children, className = '' }) => (
     <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 ${className}`}>
         {children}
@@ -23,6 +23,7 @@ export const ProgressBar = ({ current, total, color = 'blue' }) => {
         green: 'bg-green-600',
         purple: 'bg-purple-600',
         yellow: 'bg-yellow-500',
+        red: 'bg-red-500',
     };
     return (
         <div>
@@ -31,10 +32,7 @@ export const ProgressBar = ({ current, total, color = 'blue' }) => {
                 <span>${total.toLocaleString()}</span>
             </div>
             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                <div
-                    className={`${colorClasses[color]} h-2.5 rounded-full`}
-                    style={{ width: `${percentage}%` }}
-                ></div>
+                <div className={`${colorClasses[color]} h-2.5 rounded-full`} style={{ width: `${percentage}%` }}></div>
             </div>
         </div>
     );
