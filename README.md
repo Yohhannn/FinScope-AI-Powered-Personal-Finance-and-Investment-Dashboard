@@ -53,12 +53,11 @@ npm -v
 
 # Install backend dependencies
 npm install
-npm install cors
-npm install pg dotenv
+npm install express pg cors dotenv bcrypt jsonwebtoken
 
 Setup .env file. (example is in there named .env.example
 
-npm start
+node server.js
 # Server will run at http://localhost:5000
 
 
