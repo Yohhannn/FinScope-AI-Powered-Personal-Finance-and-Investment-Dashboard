@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 
-export default function AddGoalModal({ isOpen, onClose, onSuccess }) {
+export default function GoalModal({ isOpen, onClose, onSuccess }) {
     const [form, setForm] = useState({ name: '', target_amount: '' });
 
     const handleSubmit = async (e) => {

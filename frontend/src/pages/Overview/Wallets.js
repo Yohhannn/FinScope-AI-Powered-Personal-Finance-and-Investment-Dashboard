@@ -107,7 +107,7 @@ export default function Wallets({ onAddTransaction, onAddWallet }) {
                                         {tx.wallet_name} • {tx.category_name || 'Uncategorized'}
                                     </div>
                                 </div>
-                                <div className={`text-lg font-medium ${tx.type === 'income' ? 'text-green-600' : 'text-gray-900 dark:text-white'}`}>
+                                <div className={`text-lg font-medium ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
                                     {tx.type === 'income' ? '+' : '-'}${Math.abs(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                 </div>
                             </div>

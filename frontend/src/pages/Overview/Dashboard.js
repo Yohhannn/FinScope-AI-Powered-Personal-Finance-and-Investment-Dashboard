@@ -123,7 +123,7 @@ const DashboardHome = ({ setCurrentPage }) => {
                                         <div className="font-medium text-gray-900 dark:text-white">{tx.name}</div>
                                         <div className="text-sm text-gray-500 dark:text-gray-400">{tx.wallet_name} • {new Date(tx.transaction_date).toLocaleDateString()}</div>
                                     </div>
-                                    <div className={`text-lg font-medium ${tx.type === 'income' ? 'text-green-600' : 'text-gray-900 dark:text-white'}`}>
+                                    <div className={`text-lg font-medium ${tx.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
                                         {tx.type === 'income' ? '+' : '-'}${Math.abs(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                                     </div>
                                 </div>
