@@ -31,19 +31,22 @@ const DashboardModel = {
     // ============================================
     // 🟢 2. UPDATED: SOFT ALLOCATION (No Wallet Deduction)
     // ============================================
+// ... inside models/dashboardModel.js ...
+
+// 🟢 PERFORM CONTRIBUTION (Fixed Parameter Count)
+// 🟢 PERFORM CONTRIBUTION (Locked to current wallet)
     performGoalContribution: async (userId, goalId, walletId, amount) => {
         const client = await db.pool.connect();
 
         try {
             await client.query('BEGIN');
 
-            // A. Get Wallet & Calculate Available Funds
-            // We lock the wallet row to prevent race conditions
+            // 1. Get Wallet Balance
             const walletRes = await client.query(
-                `SELECT balance, 
-                (balance - COALESCE((SELECT SUM(current_amount) FROM saving_goal WHERE wallet_id = $1), 0)) AS available_balance
-                FROM wallet WHERE wallet_id = $1 AND user_id = $2 FOR UPDATE`,
-                [walletId, userId]
+                `SELECT balance,
+                        (balance - COALESCE((SELECT SUM(current_amount) FROM saving_goal WHERE wallet_id = $1 AND goal_id != $3), 0)) AS available_balance
+                 FROM wallet WHERE wallet_id = $1 AND user_id = $2 FOR UPDATE`,
+                [walletId, userId, goalId]
             );
 
             if (walletRes.rows.length === 0) throw new Error("Wallet not found");
@@ -51,30 +54,27 @@ const DashboardModel = {
             const availableBalance = parseFloat(walletRes.rows[0].available_balance);
             const contribution = parseFloat(amount);
 
-            // B. Validation: Check against AVAILABLE balance, not total balance
+            // 2. Validation
             if (contribution > 0 && availableBalance < contribution) {
                 throw new Error(`Insufficient available funds. Available: $${availableBalance.toLocaleString()}`);
             }
 
-            // C. Update Goal (Add/Remove funds from goal)
+            // 3. Update Goal Amount ONLY
+            // 🟢 REMOVED: "wallet_id = $3". We do not move the goal to a new wallet.
             await client.query(
                 'UPDATE saving_goal SET current_amount = current_amount + $1 WHERE goal_id = $2',
                 [contribution, goalId]
             );
 
-            // 🟢 NOTE: We REMOVED the "UPDATE wallet SET balance..." query here.
-            // 🟢 NOTE: We REMOVED the insert into main "transaction" table.
-
-            // D. Record the History (So you can see what happened inside the goal)
+            // 4. Record History
             await client.query(
-                `INSERT INTO saving_goal_transaction (amount, transaction_date, goal_id, wallet_id) 
+                `INSERT INTO saving_goal_transaction (amount, transaction_date, goal_id, wallet_id)
                  VALUES ($1, CURRENT_DATE, $2, $3)`,
                 [contribution, goalId, walletId]
             );
 
             await client.query('COMMIT');
 
-            // Return the new calculated available balance
             return availableBalance - contribution;
 
         } catch (error) {

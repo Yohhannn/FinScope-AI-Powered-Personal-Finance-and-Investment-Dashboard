@@ -1,52 +1,46 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, AlertTriangle, Wallet } from 'lucide-react';
+import { X, Save, AlertTriangle, Wallet, Lock } from 'lucide-react';
 
 export default function ContributeGoalModal({ isOpen, onClose, goal, onSuccess }) {
     const [walletId, setWalletId] = useState('');
     const [amount, setAmount] = useState('');
     const [wallets, setWallets] = useState([]);
     const [selectedWalletData, setSelectedWalletData] = useState(null);
-    const [mode, setMode] = useState('add'); // 'add' or 'deduct'
+    const [mode, setMode] = useState('add');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
     useEffect(() => {
         if (isOpen) {
             setAmount('');
-            setWalletId('');
-            setSelectedWalletData(null);
             setError('');
             setLoading(false);
             setMode('add');
 
+            // 🟢 PRE-SET WALLET ID FROM GOAL
+            if (goal && goal.wallet_id) {
+                setWalletId(goal.wallet_id);
+            }
+
             const fetchWallets = async () => {
                 const token = localStorage.getItem("token");
                 try {
-                    // This endpoint uses DashboardModel.getWallets which now includes 'available_balance'
                     const res = await fetch("http://localhost:5000/api/dashboard", { headers: { Authorization: token } });
                     if (res.ok) {
                         const data = await res.json();
                         setWallets(data.wallets || []);
 
-                        // Default select first wallet
-                        if(data.wallets && data.wallets.length > 0) {
-                            setWalletId(data.wallets[0].wallet_id);
-                            setSelectedWalletData(data.wallets[0]);
+                        // Find the wallet data for the linked goal
+                        if (goal && goal.wallet_id) {
+                            const linkedWallet = data.wallets.find(w => String(w.wallet_id) === String(goal.wallet_id));
+                            setSelectedWalletData(linkedWallet);
                         }
                     }
                 } catch(e) { console.error(e); }
             };
             fetchWallets();
         }
-    }, [isOpen]);
-
-    // Handle Wallet Selection to update available balance display
-    const handleWalletChange = (e) => {
-        const id = e.target.value;
-        setWalletId(id);
-        const w = wallets.find(w => String(w.wallet_id) === String(id));
-        setSelectedWalletData(w || null);
-    };
+    }, [isOpen, goal]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -55,23 +49,17 @@ export default function ContributeGoalModal({ isOpen, onClose, goal, onSuccess }
 
         const parsedAmount = parseFloat(amount);
 
-        if (!walletId) {
-            setError("Please select a wallet.");
-            setLoading(false);
-            return;
-        }
         if (!parsedAmount || parsedAmount <= 0) {
             setError("Please enter a valid amount greater than 0.");
             setLoading(false);
             return;
         }
 
-        // 🟢 UI Validation: Check Available Balance before sending to server
+        // Check Available Balance
         if (mode === 'add' && selectedWalletData) {
-            // Use available_balance if it exists, otherwise fall back to balance
             const avail = parseFloat(selectedWalletData.available_balance ?? selectedWalletData.balance);
             if (parsedAmount > avail) {
-                setError(`Insufficient available funds. You only have $${avail.toLocaleString()} to allocate.`);
+                setError(`Insufficient available funds. Only $${avail.toLocaleString()} available in ${selectedWalletData.name}.`);
                 setLoading(false);
                 return;
             }
@@ -106,22 +94,13 @@ export default function ContributeGoalModal({ isOpen, onClose, goal, onSuccess }
 
     if (!isOpen || !goal) return null;
 
-    // Helper to get the correct balance number
-    const getDisplayBalance = (w) => {
-        return parseFloat(w.available_balance ?? w.balance);
-    };
+    const getDisplayBalance = (w) => parseFloat(w.available_balance ?? w.balance);
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl w-full max-w-sm relative animate-in fade-in zoom-in-95 duration-200 shadow-2xl">
 
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-900 dark:hover:text-white transition"
-                >
-                    <X size={20}/>
-                </button>
+                <button type="button" onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-900 dark:hover:text-white transition"><X size={20}/></button>
 
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">Update Savings</h3>
                 <p className="text-sm text-gray-500 mb-5">Goal: <span className="font-semibold text-blue-600 dark:text-blue-400">{goal.name}</span></p>
@@ -134,49 +113,39 @@ export default function ContributeGoalModal({ isOpen, onClose, goal, onSuccess }
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-5">
-                    {/* Mode Toggle */}
                     <div className="flex w-full bg-gray-100 dark:bg-gray-700/50 rounded-xl p-1">
-                        <button
-                            type="button"
-                            onClick={() => setMode('add')}
-                            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${mode === 'add' ? 'bg-white dark:bg-gray-600 text-green-600 dark:text-green-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
-                        >
-                            Add (+)
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setMode('deduct')}
-                            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${mode === 'deduct' ? 'bg-white dark:bg-gray-600 text-red-600 dark:text-red-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
-                        >
-                            Deduct (-)
-                        </button>
+                        <button type="button" onClick={() => setMode('add')} className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${mode === 'add' ? 'bg-white dark:bg-gray-600 text-green-600 dark:text-green-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>Add (+)</button>
+                        <button type="button" onClick={() => setMode('deduct')} className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${mode === 'deduct' ? 'bg-white dark:bg-gray-600 text-red-600 dark:text-red-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}>Deduct (-)</button>
                     </div>
 
-                    {/* Wallet Select */}
+                    {/* 🟢 LOCKED WALLET SELECTION */}
                     <div className="space-y-1.5">
                         <div className="flex justify-between items-center">
-                            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Source Wallet</label>
+                            <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide flex items-center">
+                                Source Wallet <Lock size={10} className="ml-1 text-gray-400"/>
+                            </label>
                             {selectedWalletData && (
                                 <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
                                     Avail: ${getDisplayBalance(selectedWalletData).toLocaleString()}
                                 </span>
                             )}
                         </div>
-                        <select
-                            value={walletId}
-                            onChange={handleWalletChange}
-                            className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                        >
-                            {wallets.map(w => (
-                                <option key={w.wallet_id} value={w.wallet_id}>
-                                    {/* 🟢 SHOW AVAILABLE BALANCE IN DROPDOWN */}
-                                    {w.name} (${getDisplayBalance(w).toLocaleString()} Available)
-                                </option>
-                            ))}
-                        </select>
+                        <div className="relative">
+                            <select
+                                value={walletId}
+                                disabled={true} // 🟢 DISABLE USER CHANGE
+                                className="w-full p-3 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700 cursor-not-allowed appearance-none"
+                            >
+                                {wallets.map(w => (
+                                    <option key={w.wallet_id} value={w.wallet_id}>
+                                        {w.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <Lock size={16} className="absolute right-3 top-3.5 text-gray-400" />
+                        </div>
                     </div>
 
-                    {/* Amount Input */}
                     <div className="space-y-1.5">
                         <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Amount</label>
                         <div className="relative">
