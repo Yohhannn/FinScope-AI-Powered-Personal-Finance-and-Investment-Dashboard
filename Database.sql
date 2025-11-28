@@ -333,6 +333,22 @@ CREATE TABLE aimsg (
 );
 
 
+-- ============================================
+-- TABLE: SAVING_GOAL_TRANSACTION
+-- ============================================
+
+CREATE TABLE saving_goal_transaction (
+                                         transaction_id SERIAL PRIMARY KEY,
+                                         amount NUMERIC(12,2) NOT NULL,
+                                         transaction_date DATE NOT NULL,
+                                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- Foreign Keys
+                                         goal_id INT REFERENCES saving_goal(goal_id) ON DELETE CASCADE,
+                                         wallet_id INT REFERENCES wallet(wallet_id) ON DELETE SET NULL
+);
+
+
 
 -- ==================================================
 
