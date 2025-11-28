@@ -16,11 +16,11 @@ const Modal = ({ isOpen, onClose, title, children }) => {
     );
 };
 
-export default function AddWalletModal({ isOpen, onClose }) {
+export default function AddWalletModal({ isOpen, onClose, onSuccess }) {
     const [name, setName] = useState('');
     const [type, setType] = useState('bank');
     const [balance, setBalance] = useState('');
-    const [purpose, setPurpose] = useState(''); // New Field based on SQL
+    const [purpose, setPurpose] = useState('');
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -39,8 +39,11 @@ export default function AddWalletModal({ isOpen, onClose }) {
 
             if(response.ok) {
                 alert("Wallet Added Successfully!");
+                // 🟢 CALL SUCCESS FUNCTION INSTEAD OF RELOAD
+                if (onSuccess) onSuccess();
                 onClose();
-                window.location.reload();
+                // Reset form
+                setName(''); setBalance(''); setPurpose('');
             } else {
                 const err = await response.json();
                 alert("Failed: " + (err.error || "Unknown error"));

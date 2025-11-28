@@ -475,3 +475,10 @@ INSERT INTO transaction (name, amount, transaction_date, description, type, wall
                                                                                                         ('Freelance Project Payment', 300.00, '2025-11-02', 'Web design work', 'income', 3, 6), -- Bob income (wallet 3, category 6)
 
                                                                                                         ('Weekly Groceries', 85.20, '2025-11-05', 'Grocery run', 'expense', 3, 4); -- Bob expense (wallet 3, category 4)
+
+
+
+-- Add a 'pinned' column to budgets and goals (Default is FALSE)
+ALTER TABLE budget ADD COLUMN is_pinned BOOLEAN DEFAULT FALSE;
+ALTER TABLE saving_goal ADD COLUMN is_pinned BOOLEAN DEFAULT FALSE;
+ALTER TABLE saving_goal ADD COLUMN wallet_id INT REFERENCES wallet(wallet_id);

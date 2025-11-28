@@ -16,44 +16,54 @@ const Modal = ({ isOpen, onClose, title, children }) => {
     );
 };
 
-export default function AddTransactionModal({ isOpen, onClose }) {
+export default function AddTransactionModal({ isOpen, onClose, onSuccess }) {
     const [type, setType] = useState('expense');
     const [amount, setAmount] = useState('');
     const [name, setName] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [description, setDescription] = useState('');
 
-    // Dropdown Data
+    // IDs
     const [walletId, setWalletId] = useState('');
-    const [categoryId, setCategoryId] = useState('');
+    const [categoryId, setCategoryId] = useState(''); // We still save Category ID in the DB
+
+    // Data Lists
     const [wallets, setWallets] = useState([]);
     const [categories, setCategories] = useState([]);
+    const [budgets, setBudgets] = useState([]);
 
-    // 🟢 FETCH DATA WHEN MODAL OPENS
+    // FETCH DATA
     useEffect(() => {
         if (isOpen) {
             const loadData = async () => {
                 const token = localStorage.getItem("token");
                 try {
-                    // 1. Fetch Wallets
-                    const wRes = await fetch("http://localhost:5000/api/dashboard", { headers: { Authorization: token } });
-                    const wData = await wRes.json();
+                    const [wRes, cRes, bRes] = await Promise.all([
+                        fetch("http://localhost:5000/api/dashboard", { headers: { Authorization: token } }),
+                        fetch("http://localhost:5000/api/dashboard/categories", { headers: { Authorization: token } }),
+                        fetch("http://localhost:5000/api/dashboard/budgets", { headers: { Authorization: token } })
+                    ]);
+
                     if (wRes.ok) {
+                        const wData = await wRes.json();
                         setWallets(wData.wallets);
-                        if(wData.wallets.length > 0) setWalletId(wData.wallets[0].wallet_id);
+                        if(wData.wallets.length > 0 && !walletId) setWalletId(wData.wallets[0].wallet_id);
                     }
 
-                    // 2. Fetch Categories (This was the missing part)
-                    const cRes = await fetch("http://localhost:5000/api/dashboard/categories", { headers: { Authorization: token } });
-                    const cData = await cRes.json();
-                    if (cRes.ok) {
-                        setCategories(cData);
-                        if(cData.length > 0) setCategoryId(cData[0].category_id);
-                    }
+                    const cData = cRes.ok ? await cRes.json() : [];
+                    const bData = bRes.ok ? await bRes.json() : { budgets: [] };
+
+                    setCategories(cData);
+                    setBudgets(bData.budgets || []);
+
+                    // Default category
+                    if(cData.length > 0 && !categoryId) setCategoryId(cData[0].category_id);
+
                 } catch(e) { console.error(e); }
             };
             loadData();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
 
     const handleSubmit = async (e) => {
@@ -69,17 +79,18 @@ export default function AddTransactionModal({ isOpen, onClose }) {
                     type,
                     date,
                     wallet_id: walletId,
-                    category_id: categoryId, // Sends the selected Category ID
+                    category_id: categoryId,
                     description
                 })
             });
 
             if(response.ok) {
                 alert("Transaction Saved!");
+                if (onSuccess) onSuccess();
                 onClose();
-                window.location.reload();
+                setName(''); setAmount(''); setDescription('');
             } else {
-                alert("Failed to add transaction");
+                alert("Failed to add transaction. Amount exceeds your wallet balance.");
             }
         } catch(err) { console.error(err); }
     };
@@ -87,7 +98,8 @@ export default function AddTransactionModal({ isOpen, onClose }) {
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Add New Transaction">
             <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Toggle */}
+
+                {/* Type Toggle */}
                 <div className="flex w-full bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
                     <button type="button" onClick={() => setType('expense')} className={`w-1/2 p-2 rounded-md font-medium text-sm ${type === 'expense' ? 'bg-white dark:bg-gray-800 shadow text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>Expense</button>
                     <button type="button" onClick={() => setType('income')} className={`w-1/2 p-2 rounded-md font-medium text-sm ${type === 'income' ? 'bg-white dark:bg-gray-800 shadow text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-300'}`}>Income</button>
@@ -115,14 +127,32 @@ export default function AddTransactionModal({ isOpen, onClose }) {
                             ))}
                         </select>
                     </div>
-                    {/* Category Select */}
+
+                    {/* 🟢 SMART "BUDGET/CATEGORY" DROPDOWN */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
-                        <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            {type === 'expense' ? 'Budget / Category' : 'Source'}
+                        </label>
+                        <select
+                            value={categoryId}
+                            onChange={(e) => setCategoryId(e.target.value)}
+                            className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                        >
                             {categories.length === 0 && <option value="">No Categories</option>}
-                            {categories.map(c => (
-                                <option key={c.category_id} value={c.category_id}>{c.name}</option>
-                            ))}
+
+                            {categories.map(c => {
+                                // Check if there is an active budget for this category
+                                const activeBudget = budgets.find(b => b.category_id === c.category_id);
+
+                                // Create the Label
+                                let label = c.name;
+                                if (activeBudget && type === 'expense') {
+                                    const remaining = activeBudget.limit_amount - activeBudget.spent;
+                                    label = `📉 ${c.name} ($${Math.max(0, remaining).toLocaleString()} left)`;
+                                }
+
+                                return <option key={c.category_id} value={c.category_id}>{label}</option>;
+                            })}
                         </select>
                     </div>
                 </div>
