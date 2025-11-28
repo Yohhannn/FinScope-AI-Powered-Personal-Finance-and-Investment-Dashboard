@@ -53,5 +53,7 @@ router.post("/category", authorize, DashboardController.addCategory);
 router.put("/category/:id", authorize, DashboardController.updateCategory);
 router.delete("/category/:id", authorize, DashboardController.deleteCategory);
 
+router.post("/transfer", authorize, DashboardController.transferFunds);
+
 
 module.exports = router;

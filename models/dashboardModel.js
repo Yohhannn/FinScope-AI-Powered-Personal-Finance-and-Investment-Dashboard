@@ -84,6 +84,67 @@ const DashboardModel = {
             client.release();
         }
     },
+    // ... inside DashboardModel ...
+
+    // 🟢 PERFORM WALLET TRANSFER
+    performWalletTransfer: async (userId, sourceWalletId, destWalletId, amount, date) => {
+        const client = await db.pool.connect();
+
+        try {
+            await client.query('BEGIN');
+
+            // 1. Check Source Balance
+            const sourceRes = await client.query(
+                'SELECT * FROM wallet WHERE wallet_id = $1 AND user_id = $2 FOR UPDATE',
+                [sourceWalletId, userId]
+            );
+            if (sourceRes.rows.length === 0) throw new Error("Source wallet not found");
+
+            const sourceWallet = sourceRes.rows[0];
+            const transferAmount = parseFloat(amount);
+
+            if (parseFloat(sourceWallet.balance) < transferAmount) {
+                throw new Error(`Insufficient funds in ${sourceWallet.name}`);
+            }
+
+            // 2. Check Destination Wallet
+            const destRes = await client.query(
+                'SELECT * FROM wallet WHERE wallet_id = $1 AND user_id = $2',
+                [destWalletId, userId]
+            );
+            if (destRes.rows.length === 0) throw new Error("Destination wallet not found");
+            const destWallet = destRes.rows[0];
+
+            // 3. Deduct from Source
+            await client.query('UPDATE wallet SET balance = balance - $1 WHERE wallet_id = $2', [transferAmount, sourceWalletId]);
+
+            // 4. Add to Destination
+            await client.query('UPDATE wallet SET balance = balance + $1 WHERE wallet_id = $2', [transferAmount, destWalletId]);
+
+            // 5. Create Transaction Record for Source (Expense)
+            await client.query(
+                `INSERT INTO transaction (name, amount, type, wallet_id, transaction_date, description) 
+                 VALUES ($1, $2, 'expense', $3, $4, $5)`,
+                ['Transfer Out', transferAmount, sourceWalletId, date, `Transfer to ${destWallet.name}`]
+            );
+
+            // 6. Create Transaction Record for Destination (Income)
+            await client.query(
+                `INSERT INTO transaction (name, amount, type, wallet_id, transaction_date, description) 
+                 VALUES ($1, $2, 'income', $3, $4, $5)`,
+                ['Transfer In', transferAmount, destWalletId, date, `Transfer from ${sourceWallet.name}`]
+            );
+
+            await client.query('COMMIT');
+            return true;
+
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    },
 
 
     // 🟢 NEW: Auto-Rollover Expired Budgets

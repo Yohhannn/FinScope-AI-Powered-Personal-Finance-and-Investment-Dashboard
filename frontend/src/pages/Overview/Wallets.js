@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
     Wallet, Plus, Pencil, CreditCard, Banknote, Coins,
-    ArrowUpRight, ArrowDownRight, Search, Filter
+    ArrowUpRight, ArrowDownRight, Search, Filter, ArrowRightLeft
 } from 'lucide-react';
 import { Card, SectionHeader } from '../../components/DashboardUI';
 import EditWalletModal from '../../components/EditWalletModal';
 import TransactionDetailsModal from '../../components/TransactionDetailsModal';
 import WalletDetailsModal from '../../components/WalletDetailsModal';
+import TransferModal from '../../components/TransferModal'; // 🟢 NEW IMPORT
 
 const getWalletStyle = (type) => {
     const t = type?.toLowerCase();
@@ -26,6 +27,7 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
 
     // Modals
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isTransferModalOpen, setIsTransferModalOpen] = useState(false); // 🟢 NEW STATE
     const [selectedWallet, setSelectedWallet] = useState(null);
     const [selectedTx, setSelectedTx] = useState(null);
     const [isTxModalOpen, setIsTxModalOpen] = useState(false);
@@ -67,9 +69,17 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div><h2 className="text-3xl font-bold text-gray-900 dark:text-white">My Assets</h2><p className="text-gray-500 dark:text-gray-400 mt-1">Manage your wallets and view recent activity.</p></div>
-                <div className="flex gap-3">
-                    <button onClick={onAddWallet} className="flex items-center justify-center px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition shadow-sm"><Wallet size={18} className="mr-2" /> New Wallet</button>
-                    <button onClick={onAddTransaction} className="flex items-center justify-center px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition shadow-md shadow-blue-600/20"><Plus size={18} className="mr-2" /> Add Transaction</button>
+                <div className="flex flex-wrap gap-3">
+                    {/* 🟢 Transfer Button */}
+                    <button onClick={() => setIsTransferModalOpen(true)} className="flex items-center justify-center px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition shadow-sm">
+                        <ArrowRightLeft size={18} className="mr-2" /> Transfer
+                    </button>
+                    <button onClick={onAddWallet} className="flex items-center justify-center px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition shadow-sm">
+                        <Wallet size={18} className="mr-2" /> New Wallet
+                    </button>
+                    <button onClick={onAddTransaction} className="flex items-center justify-center px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl transition shadow-md shadow-blue-600/20">
+                        <Plus size={18} className="mr-2" /> Add Transaction
+                    </button>
                 </div>
             </div>
 
@@ -133,8 +143,10 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
 
             <EditWalletModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} wallet={selectedWallet} onSuccess={onTriggerRefresh} />
             <TransactionDetailsModal isOpen={isTxModalOpen} onClose={() => setIsTxModalOpen(false)} transaction={selectedTx} onSuccess={onTriggerRefresh} />
-            {/* 🟢 WALLET DETAILS MODAL */}
             <WalletDetailsModal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} walletId={detailWalletId} />
+
+            {/* 🟢 Transfer Modal */}
+            <TransferModal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} onSuccess={onTriggerRefresh} />
         </div>
     );
 }

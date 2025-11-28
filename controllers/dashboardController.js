@@ -505,6 +505,28 @@ const DashboardController = {
 
 // ... inside dashboardController.js ...
 
+    // ... inside DashboardController ...
+
+    transferFunds: async (req, res) => {
+        try {
+            const { source_wallet_id, dest_wallet_id, amount, date } = req.body;
+            const userId = req.user.user_id;
+
+            if (source_wallet_id === dest_wallet_id) {
+                return res.status(400).json({ error: "Cannot transfer to the same wallet." });
+            }
+
+            await DashboardModel.performWalletTransfer(
+                userId, source_wallet_id, dest_wallet_id, amount, date || new Date()
+            );
+
+            res.json({ message: "Transfer successful" });
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ error: err.message });
+        }
+    },
+
     deleteCategory: async (req, res) => {
         try {
             const { id } = req.params;
