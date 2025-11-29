@@ -50,6 +50,7 @@ const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh 
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": token },
                 body: JSON.stringify({
+                    // Simple prompt for the card insight
                     message: "Look at my dashboard data. Give me a 2-sentence summary of my financial health and 1 actionable tip."
                 })
             });
@@ -106,7 +107,7 @@ const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh 
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto">
-
+            {/* ... (Header and Top Stats JSX) ... */}
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div><h1 className="text-3xl font-bold text-gray-900 dark:text-white">{getGreeting()}, {user?.name || 'User'}</h1><p className="text-gray-500 dark:text-gray-400 mt-1">Here's what's happening with your money today.</p></div>
@@ -260,12 +261,116 @@ export default function Dashboard() {
     const notifRef = useRef(null);
     const triggerRefresh = () => setRefreshTrigger(prev => prev + 1);
 
+    // 🟢 NEW STATE for AI-Generated Notifications
+    const [aiNotifications, setAiNotifications] = useState(() => {
+        const storedNotifs = localStorage.getItem('aiNotifications');
+        return storedNotifs ? JSON.parse(storedNotifs) : [];
+    });
+
+    // 🟢 CONSTANT: Define the minimum interval between AI checks (5 minutes)
+    const ALERT_CHECK_INTERVAL_MS = 5 * 60 * 1000;
+
+    // 🟢 Function to call AI for Smart Notifications
+    const fetchAINotifications = async () => {
+        // 1. Check if the time limit has passed
+        const lastCheckTime = parseInt(localStorage.getItem('lastAlertCheckTime') || '0', 10);
+        const currentTime = Date.now();
+
+        if (currentTime - lastCheckTime < ALERT_CHECK_INTERVAL_MS) {
+            console.log("AI alert check skipped: Too soon since last check.");
+            return; // Skip if it hasn't been 5 minutes
+        }
+
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch("http://localhost:5000/api/dashboard", { headers: { Authorization: token } });
+            const data = await res.json();
+
+            if (res.ok) {
+                // 2. Update the last check time *before* calling the AI
+                localStorage.setItem('lastAlertCheckTime', currentTime.toString());
+
+                // --- Prepare Context & Prompt for Deduplication ---
+                const lastAIAlertMessage = localStorage.getItem('lastAIAlertMessage') || '';
+
+                // Format critical data points for AI analysis
+                const context = {
+                    latestTransaction: data.recentTransactions[0],
+                    budgets: data.budgets.map(b => ({ name: b.category_name, spent: parseFloat(b.spent), limit: parseFloat(b.limit_amount) })),
+                    goals: data.goals.map(g => ({ name: g.name, current: parseFloat(g.current_amount), target: parseFloat(g.target_amount) })),
+                    netWorth: data.netWorth
+                };
+
+                // 🟢 UPDATED MESSAGE for deduplication
+                const message = `Analyze the following real-time financial data. Identify only ONE critical or actionable alert for the user. Compare the new alert against the LAST ALERT MESSAGE: "${lastAIAlertMessage}".
+                If the current critical condition is the SAME as the last alert, respond ONLY with the exact text "NO_CHANGE".
+                Otherwise, respond ONLY with the NEW alert text, prefixed by an emoji (e.g., ⚠️, 💡, 📈). Do not provide any other dialogue. Data: ${JSON.stringify(context)}`;
+
+                const aiRes = await fetch("http://localhost:5000/api/ai/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": token },
+                    body: JSON.stringify({ message })
+                });
+
+                const aiResult = await aiRes.json();
+
+                if (aiRes.ok && aiResult.reply) {
+                    const newAlertText = aiResult.reply.trim();
+
+                    if (newAlertText !== "NO_CHANGE") {
+                        const newNotification = {
+                            id: Date.now(),
+                            message: newAlertText,
+                            isNew: true,
+                            timestamp: new Date().toLocaleTimeString()
+                        };
+
+                        // 🟢 Update last AI Alert message storage
+                        localStorage.setItem('lastAIAlertMessage', newAlertText);
+
+                        // Add the new notification to the existing list (keeping maximum 5)
+                        setAiNotifications(prev => {
+                            const updated = [newNotification, ...prev].slice(0, 5);
+                            localStorage.setItem('aiNotifications', JSON.stringify(updated));
+                            return updated;
+                        });
+                    } else {
+                        console.log("AI alert check skipped: No change in critical financial status.");
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("AI Notification Error:", e);
+            // Optionally reset the last check time if the API call failed (to try again sooner)
+            localStorage.setItem('lastAlertCheckTime', '0');
+        }
+    };
+
+    // 🟢 EFFECT 1: Trigger AI notification check only when refreshTrigger changes
+    useEffect(() => {
+        fetchAINotifications();
+    }, [refreshTrigger]);
+
+    // 🟢 Helper to clear AI notifications
+    const clearNotification = (id) => {
+        setAiNotifications(prev => {
+            const updated = prev.filter(n => n.id !== id);
+            localStorage.setItem('aiNotifications', JSON.stringify(updated));
+            return updated;
+        });
+    };
+
+    // Standard useEffects
     useEffect(() => { localStorage.setItem("lastPage", currentPage); }, [currentPage]);
     useEffect(() => { const storedUser = localStorage.getItem("user"); if (storedUser) { try { setUser(JSON.parse(storedUser)); } catch (e) { console.error(e); } } }, []);
     const [isDarkMode, setIsDarkMode] = useState(() => { const saved = localStorage.getItem("theme"); return saved ? JSON.parse(saved) : true; });
     useEffect(() => { const root = window.document.documentElement; if (isDarkMode) { root.classList.add('dark'); localStorage.setItem("theme", "true"); } else { root.classList.remove('dark'); localStorage.setItem("theme", "false"); } }, [isDarkMode]);
     useEffect(() => { const handleClickOutside = (event) => { if (profileRef.current && !profileRef.current.contains(event.target)) setIsProfileOpen(false); if (notifRef.current && !notifRef.current.contains(event.target)) setIsNotifOpen(false); }; document.addEventListener("mousedown", handleClickOutside); return () => document.removeEventListener("mousedown", handleClickOutside); }, []);
-    const handleLogout = () => { localStorage.clear(); localStorage.removeItem('aiInsight'); navigate("/login"); };
+
+    // 🟢 UPDATED handleLogout to clear new storage item
+    const handleLogout = () => { localStorage.clear(); localStorage.removeItem('aiInsight'); localStorage.removeItem('aiNotifications'); localStorage.removeItem('lastAlertCheckTime'); localStorage.removeItem('lastAIAlertMessage'); navigate("/login"); };
+
+    const unreadCount = aiNotifications.filter(n => n.isNew).length;
 
     const renderPage = () => {
         switch (currentPage) {
@@ -281,6 +386,7 @@ export default function Dashboard() {
 
     return (
         <div className={`flex h-screen font-sans ${isDarkMode ? 'dark' : ''} bg-gray-50 dark:bg-gray-950`}>
+            {/* ... (Sidebar and Navigation remain the same) ... */}
             <div className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 h-screen flex flex-col p-4 fixed z-20">
                 <div className="flex items-center gap-3 px-4 py-6 mb-2"><div className="p-2 bg-blue-600 rounded-xl"><Sparkles size={24} className="text-white" /></div><h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">FinScope</h1></div>
                 <nav className="flex-1 space-y-1.5">{[{ id: 'dashboard', icon: LayoutDashboard, label: 'Overview' }, { id: 'wallets', icon: Wallet, label: 'Wallets' }, { id: 'budgets', icon: PiggyBank, label: 'Budgets' }, { id: 'advisor', icon: Sparkles, label: 'AI Advisor' }, { id: 'analytics', icon: BarChart3, label: 'Analytics' }].map(item => (<button key={item.id} onClick={() => setCurrentPage(item.id)} className={`flex items-center w-full px-4 py-3 rounded-xl transition-all font-medium ${currentPage === item.id ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'}`}><item.icon size={20} className="mr-3" />{item.label}</button>))}</nav>
@@ -288,7 +394,44 @@ export default function Dashboard() {
             </div>
             <div className="flex-1 flex flex-col ml-64 h-screen overflow-y-auto">
                 <header className="sticky top-0 z-10 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-8 py-4 flex justify-end items-center gap-6">
-                    <div className="relative" ref={notifRef}><button onClick={() => setIsNotifOpen(!isNotifOpen)} className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition relative p-1"><Bell size={22} /><span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-950"></span></button>{isNotifOpen && (<div className="absolute right-0 mt-3 w-80 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-2 z-50"><div className="flex justify-between items-center px-4 py-2 border-b border-gray-100 dark:border-gray-800"><h4 className="font-semibold text-gray-900 dark:text-white text-sm">Notifications</h4><button onClick={() => setIsNotifOpen(false)} className="text-gray-400 hover:text-gray-500"><X size={16}/></button></div><div className="py-2"><div className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer rounded-lg transition"><p className="text-sm text-gray-800 dark:text-gray-200 font-medium">Budget Alert ⚠️</p><p className="text-xs text-gray-500 mt-1">You've reached 80% of your Food budget.</p></div></div></div>)}</div>
+                    <div className="relative" ref={notifRef}>
+                        <button onClick={() => setIsNotifOpen(!isNotifOpen)} className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition relative p-1">
+                            <Bell size={22} />
+                            {/* 🟢 Display unread count bubble */}
+                            {unreadCount > 0 && <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-950"></span>}
+                        </button>
+
+                        {/* 🟢 AI Notification Popover */}
+                        {isNotifOpen && (
+                            <div className="absolute right-0 mt-3 w-80 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-2 z-50">
+                                <div className="flex justify-between items-center px-4 py-2 border-b border-gray-100 dark:border-gray-800">
+                                    <h4 className="font-semibold text-gray-900 dark:text-white text-sm">AI Alerts ({aiNotifications.length})</h4>
+                                    <button onClick={() => setIsNotifOpen(false)} className="text-gray-400 hover:text-gray-500"><X size={16}/></button>
+                                </div>
+                                <div className="py-2">
+                                    {aiNotifications.length === 0 ? (
+                                        <div className="px-4 py-3 text-center text-gray-500 text-sm">No new alerts.</div>
+                                    ) : (
+                                        // Map through AI notifications
+                                        aiNotifications.map((notif) => (
+                                            <div key={notif.id} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer rounded-lg transition relative">
+                                                <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">{notif.message}</p>
+                                                <p className="text-xs text-gray-500 mt-1">{notif.timestamp}</p>
+                                                {/* Button to clear individual notification */}
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); clearNotification(notif.id); }}
+                                                    className="absolute top-1 right-2 text-gray-300 hover:text-red-500 transition"
+                                                    title="Dismiss Alert"
+                                                >
+                                                    <X size={12}/>
+                                                </button>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                     <div className="h-8 w-px bg-gray-200 dark:bg-gray-700"></div>
                     <div className="relative" ref={profileRef}><button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded-xl transition"><div className="text-right hidden sm:block"><p className="text-sm font-semibold text-gray-900 dark:text-white">{user.name}</p></div><div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-md"><User size={20} /></div><ChevronDown size={16} className={`text-gray-400 transition-transform ${isProfileOpen ? 'rotate-180' : ''}`} /></button>{isProfileOpen && (<div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-100 dark:border-gray-800 p-1 z-50 animate-in fade-in slide-in-from-top-2"><button onClick={() => { setCurrentPage('settings'); setIsProfileOpen(false); }} className="flex w-full items-center px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"><SettingsIcon size={16} className="mr-2" /> Settings</button><div className="h-px bg-gray-100 dark:bg-gray-800 my-1"></div><button onClick={handleLogout} className="flex w-full items-center px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition"><LogOut size={16} className="mr-2" /> Sign Out</button></div>)}</div>
                 </header>

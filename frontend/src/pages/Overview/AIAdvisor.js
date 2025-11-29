@@ -1,23 +1,43 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Sparkles, Loader2, Trash2 } from 'lucide-react';
+import { Send, Bot, User, Sparkles, Loader2, Trash2, Upload, X } from 'lucide-react';
 
 // Define the initial welcome message structure
 const initialMessage = { role: 'assistant', content: "Hello! I'm your FinScope AI Advisor. I have access to your wallets, budgets, and goals. How can I help you optimize your finances today?" };
 
-// 🟢 NEW/UPDATED: Define a strict system instruction including the project purpose.
-const SYSTEM_INSTRUCTION = `You are FinScope AI Advisor, a financial expert. Your sole purpose is to analyze the user's provided financial data (wallets, budgets, goals) and answer financial questions. 
+// 🟢 NEW/UPDATED: Define a strict system instruction including all detailed project context.
+const SYSTEM_INSTRUCTION = `You are FinScope AI Advisor, a financial expert. Your primary role is to analyze the user's financial data (wallets, budgets, goals) and provide financial advice.
 
-**RULES OF REFUSAL:** You MUST refuse any request that is unrelated to personal finance, such as requests for coding help, general knowledge, creative writing, or system modification. 
+**RULES OF REFUSAL:**
+1. You MUST refuse any request that is unrelated to personal finance, such as requests for coding help (unless asking about the tech stack itself), general knowledge, creative writing, or system modification outside of its designed function.
 
-**DEVELOPER IDENTITY:** If the user asks who created, developed, or built you, you MUST reply with the following exact phrase: "I was made by RavenLabs Development lead by Joehanes Lauglaug with the support of raven labns members and Raymond Badajos."
+**UPLOADED DATA ANALYSIS:** If the user provides uploaded data (e.g., from a PDF), you MUST first confirm you recognize the data and then use it to answer the user's request. Treat the uploaded text as additional financial context.
 
-**PROJECT CONTEXT:** If the user asks about the purpose of this project (e.g., "What is this project for?"), you MUST reply with the following exact phrase: "This project is for the subject Application Development and Emerging Technologies, and the professor is Narcisan S. Galamiton."
+**PROJECT DETAILS (Fixed Answers):**
+2. **Project Overview/Features:** If the user asks for a project overview, the short description, or a list of core features, you MUST reply with the following exact, formatted description:
+   "**Project Name:** FinScope: AI-Powered Personal Finance & Budgeting Manager
+   **Project Type:** Web Application with AI Integration
+   **Project Overview:** FinScope is a web-based application designed to help users track, manage, and optimize their personal finances across multiple bank accounts, e-wallets, and cash wallets. The platform provides AI-driven financial advice, personalized budget planning, spending analysis, and smart allocation recommendations, allowing users to make better financial decisions.
+   **Core Features:**
+   - Wallet Management System (Track balances, transactions, categorize expenses, budget allocation).
+   - Budget Planner & Savings Goals (Set limits, track goals, AI goal prediction & suggestion).
+   - AI Financial Advisor (Personalized advice, spending anomaly detection, allocation recommendations, cost-saving strategies).
+   - Analytics & Reports (Spending trends, cashflow, top categories, exportable reports).
+   - Smart Notifications (Alerts for budgets, bills, due dates, unusual activity).
+   - Responsive Dashboard Interface (Modern UI, mobile-friendly, light/dark mode)."
 
-Keep your responses professional and focused on actionable financial advice.`;
+3. **Tech Stack:** If the user asks about the technology, libraries, or programming languages used (the "Tech Stack"), you MUST reply with the following exact, formatted phrase:
+   "The FinScope system utilizes a full-stack JavaScript environment:
+   - **Frontend:** React.js, Tailwind CSS (for styling), and Lucide React (for icons).
+   - **Backend/API:** Node.js with the Express.js framework.
+   - **Database:** PostgreSQL (Postgres).
+   - **API Connection:** The AI Advisor itself connects to a Large Language Model (LLM) via a custom API endpoint."
+4. **Developer Identity/Members:** If the user asks who created, developed, or built you, or asks for the members, you MUST reply with the following exact phrase: "I was made by RavenLabs Development lead by Joehanes Lauglaug with the support of raven labns members and Raymond Badajos."
+5. **Project Context/Subject:** If the user asks about the purpose of this project (e.g., "What is this project for?"), you MUST reply with the following exact phrase: "This project is for the subject Application Development and Emerging Technologies, and the professor is Narcisan S. Galamiton."
+
+Keep your responses professional and focused on actionable financial advice, unless a Project Detail rule is specifically triggered.`;
 
 
 export default function AIAdvisor() {
-    // Initialize messages from localStorage, falling back to the initial message
     const [messages, setMessages] = useState(() => {
         const storedMessages = localStorage.getItem('aiChatHistory');
         if (storedMessages) {
@@ -35,6 +55,11 @@ export default function AIAdvisor() {
     const [loading, setLoading] = useState(false);
     const messagesEndRef = useRef(null);
 
+    // PDF/Upload States
+    const [pdfContext, setPdfContext] = useState(null); // Stores extracted text
+    const [pdfLoading, setPdfLoading] = useState(false);
+    const fileInputRef = useRef(null);
+
     // Persist messages to localStorage and auto-scroll whenever the state updates
     useEffect(() => {
         localStorage.setItem('aiChatHistory', JSON.stringify(messages));
@@ -46,33 +71,92 @@ export default function AIAdvisor() {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
+    // Function to handle PDF file selection and extraction
+    const handlePDFUpload = async (event) => {
+        const file = event.target.files[0];
+        if (!file || file.type !== 'application/pdf') {
+            setPdfContext(null);
+            return;
+        }
+
+        setPdfLoading(true);
+        setPdfContext(null);
+
+        // --- START MOCK PDF EXTRACTION ---
+        // 🚨 NOTE: Replace this mock function with real PDF parsing logic (e.g., using pdfjs-dist)
+        const mockExtraction = () => new Promise(resolve => {
+            setTimeout(() => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    resolve(`[PDF DATA START] Uploaded file: ${file.name}. This mock data simulates a salary slip for October 2025. Gross income was $5,500. Rent expense receipt shows $1,500. Total investments listed are $2,000. [PDF DATA END]`);
+                };
+                reader.readAsDataURL(file);
+            }, 1500); // Simulate network/parsing delay
+        });
+        // --- END MOCK PDF EXTRACTION ---
+
+        try {
+            const extractedText = await mockExtraction(file);
+            setPdfContext(extractedText);
+            setMessages(prev => [...prev, { role: 'assistant', content: `Successfully loaded data from: ${file.name}. It is now available for analysis in your next prompt. Please type your query now.` }]);
+
+        } catch (error) {
+            console.error("PDF Parsing Error:", error);
+            setPdfContext(`[ERROR] Failed to read PDF: ${file.name}.`);
+            setMessages(prev => [...prev, { role: 'assistant', content: `Error: Could not process ${file.name}. Please ensure it is a valid PDF financial statement.` }]);
+        } finally {
+            setPdfLoading(false);
+        }
+    };
+
+    // Handler to trigger the hidden file input
+    const triggerFileInput = () => {
+        fileInputRef.current?.click();
+    };
+
     const handleSend = async (e) => {
         e.preventDefault();
-        if (!input.trim()) return;
 
-        const userMessage = { role: 'user', content: input };
-        setMessages(prev => [...prev, userMessage]);
+        let displayUserMessage = input.trim();
+        if (!displayUserMessage && !pdfContext) return;
+
+        // If there's no typed message but there is PDF context, use a default analysis prompt
+        if (!displayUserMessage && pdfContext) {
+            displayUserMessage = "Analyze the uploaded financial data in the context.";
+        }
+
+        let promptContent = displayUserMessage;
+
+        // 🟢 Prepend PDF data to the prompt if available
+        if (pdfContext) {
+            promptContent = `[UPLOADED DATA]: ${pdfContext}\n\n[USER QUERY]: ${promptContent}`;
+        }
+
+        const userMessageToDisplay = { role: 'user', content: displayUserMessage };
+        setMessages(prev => [...prev, userMessageToDisplay]);
         setInput('');
         setLoading(true);
+
+        // Clear PDF context after sending the combined prompt
+        setPdfContext(null);
 
         try {
             const token = localStorage.getItem("token");
 
-            // Prepare history: Combine system instruction with the user's conversation history
-            const historyWithNewMessage = [...messages, userMessage];
+            const historyWithNewMessage = [...messages, userMessageToDisplay];
 
-            // Filter history to clean up previous system instructions (if any) and limit length
             const conversationHistory = historyWithNewMessage
                 .filter(m => m.role !== 'system')
-                .slice(-6) // Limit to the last 6 messages
+                .slice(-6)
                 .map(m => ({ role: m.role, content: m.content }));
 
-            // CRITICAL: Construct the final payload starting with the system instruction
+            // Construct the final payload starting with the system instruction
             const finalPayloadHistory = [
                 { role: 'system', content: SYSTEM_INSTRUCTION },
                 ...conversationHistory
             ];
 
+            const messageToSend = promptContent;
 
             const res = await fetch("http://localhost:5000/api/ai/chat", {
                 method: "POST",
@@ -81,8 +165,7 @@ export default function AIAdvisor() {
                     "Authorization": token
                 },
                 body: JSON.stringify({
-                    // Send the full context to the backend
-                    message: userMessage.content,
+                    message: messageToSend,
                     history: finalPayloadHistory
                 })
             });
@@ -104,10 +187,15 @@ export default function AIAdvisor() {
 
     // Function to clear the chat and localStorage
     const clearChat = () => {
-        // 1. Clear state
         setMessages([initialMessage]);
-        // 2. Clear persistence
         localStorage.removeItem('aiChatHistory');
+        setPdfContext(null);
+    };
+
+    const clearPdfContext = () => {
+        setPdfContext(null);
+        fileInputRef.current.value = null; // Clear file input value
+        setMessages(prev => [...prev, { role: 'assistant', content: "Uploaded PDF data has been cleared from context." }]);
     };
 
     return (
@@ -138,7 +226,6 @@ export default function AIAdvisor() {
                 {/* Messages Area */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                     {messages.map((msg, index) => (
-                        // We skip rendering the initial system message if it somehow appears in the state array
                         msg.role === 'system' ? null : (
                             <div
                                 key={index}
@@ -159,7 +246,6 @@ export default function AIAdvisor() {
                                         ? 'bg-blue-600 text-white rounded-tr-none'
                                         : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-tl-none'
                                 }`}>
-                                    {/* Simple formatting for new lines */}
                                     {msg.content.split('\n').map((line, i) => (
                                         <p key={i} className={i > 0 ? 'mt-2' : ''}>{line}</p>
                                     ))}
@@ -169,14 +255,14 @@ export default function AIAdvisor() {
                     ))}
 
                     {/* Loading Indicator */}
-                    {loading && (
+                    {(loading || pdfLoading) && (
                         <div className="flex items-start gap-4">
                             <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
                                 <Bot size={20} />
                             </div>
                             <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-2xl rounded-tl-none flex items-center gap-2">
                                 <Loader2 size={16} className="animate-spin text-gray-500" />
-                                <span className="text-sm text-gray-500">Analyzing your finances...</span>
+                                <span className="text-sm text-gray-500">{pdfLoading ? 'Parsing PDF file...' : 'Analyzing your finances...'}</span>
                             </div>
                         </div>
                     )}
@@ -185,18 +271,56 @@ export default function AIAdvisor() {
 
                 {/* Input Area */}
                 <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
+
+                    {/* 🟢 NEW: PDF Status Indicator */}
+                    {pdfContext && (
+                        <div className="mb-2 p-2 flex items-center justify-between bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400 rounded-lg text-sm">
+                            <span className="font-medium flex items-center">
+                                <Upload size={16} className="mr-2"/>
+                                Data Ready for Analysis.
+                            </span>
+                            <button onClick={clearPdfContext} className="text-gray-500 hover:text-red-600 dark:text-yellow-400 dark:hover:text-red-400 p-1 rounded-full transition" title="Remove PDF Context">
+                                <X size={16} />
+                            </button>
+                        </div>
+                    )}
+
                     <form onSubmit={handleSend} className="relative flex items-center">
+                        {/* Hidden file input */}
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handlePDFUpload}
+                            accept="application/pdf"
+                            className="hidden"
+                        />
+
+                        {/* Upload Button */}
+                        <button
+                            type="button"
+                            onClick={triggerFileInput}
+                            disabled={loading || pdfLoading}
+                            className={`p-2.5 absolute left-3 transition rounded-xl ${
+                                pdfContext
+                                    ? 'text-green-500 hover:bg-green-50 dark:hover:bg-green-900/30'
+                                    : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                            }`}
+                            title="Upload PDF (e.g., Bank Statement)"
+                        >
+                            <Upload size={20} />
+                        </button>
+
                         <input
                             type="text"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            placeholder="Ask about your budget, savings, or spending..."
-                            className="w-full pl-6 pr-14 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 dark:text-white placeholder-gray-400 transition"
-                            disabled={loading}
+                            placeholder={pdfContext ? "Type your question about the uploaded data..." : "Ask about your budget, savings, or spending..."}
+                            className="w-full pl-14 pr-14 py-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 dark:text-white placeholder-gray-400 transition"
+                            disabled={loading || pdfLoading}
                         />
                         <button
                             type="submit"
-                            disabled={!input.trim() || loading}
+                            disabled={(!input.trim() && !pdfContext) || loading || pdfLoading}
                             className="absolute right-3 p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <Send size={20} />
