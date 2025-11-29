@@ -50,7 +50,7 @@ DROP TYPE IF EXISTS transaction_type CASCADE;
 
 -- ===========================
 
-CREATE TYPE wallet_type AS ENUM ('bank', 'ewallet', 'crypto', 'stocks');
+CREATE TYPE wallet_type AS ENUM ('bank', 'cash', 'ewallet', 'crypto', 'stocks');
 
 CREATE TYPE asset_type AS ENUM ('stock', 'crypto');
 

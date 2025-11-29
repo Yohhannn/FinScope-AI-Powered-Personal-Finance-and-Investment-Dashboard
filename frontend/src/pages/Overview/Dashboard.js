@@ -3,20 +3,22 @@ import { useNavigate } from 'react-router-dom';
 import {
     LayoutDashboard, Wallet, PiggyBank, Sparkles,
     BarChart3, Settings as SettingsIcon, Sun, Moon, Plus, Bell, User,
-    ChevronDown, Lightbulb, ArrowRight, ArrowUpRight, ArrowDownRight, CreditCard, LogOut, X, Target, Star
+    ChevronDown, Lightbulb, ArrowRight, ArrowUpRight, ArrowDownRight,
+    CreditCard, LogOut, X, Target, Star, Loader2, RotateCw
 } from 'lucide-react';
 
+// Assuming these components and assets are located here
 import { Card, ProgressBar } from '../../components/DashboardUI';
 import AddTransactionModal from '../../components/AddTransactionModal';
 import AddWalletModal from '../../components/AddWalletModal';
 import TransactionDetailsModal from '../../components/TransactionDetailsModal';
-
 import Wallets from './Wallets';
 import BudgetGoals from './Budget-Goals';
 import AIAdvisor from './AIAdvisor';
 import Analytics from './Analytics';
 import Settings from './Settings';
 
+// Helper function
 const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good Morning';
@@ -24,35 +26,79 @@ const getGreeting = () => {
     return 'Good Evening';
 };
 
+// 🟢 DASHBOARD HOME COMPONENT
 const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh }) => {
-    const [data, setData] = useState({ netWorth: 0, wallets: [], recentTransactions: [], budgets: [], goals: [] });
+    const [data, setData] = useState({ netWorth: 0, netWorthChange: 0, wallets: [], recentTransactions: [], budgets: [], goals: [] });
     const [loading, setLoading] = useState(true);
+
+    // 🟢 AI States: Initialize aiInsight from localStorage for persistence
+    const [aiInsight, setAiInsight] = useState(() => localStorage.getItem('aiInsight') || '');
+    const [aiLoading, setAiLoading] = useState(false);
+
     const [selectedTx, setSelectedTx] = useState(null);
     const [isTxModalOpen, setIsTxModalOpen] = useState(false);
 
+    // Function to fetch AI Insight on demand (or initial load)
+    const generateInsight = async () => {
+        setAiLoading(true);
+        // Clear old insight display while loading new one
+        setAiInsight('');
+
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch("http://localhost:5000/api/ai/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": token },
+                body: JSON.stringify({
+                    message: "Look at my dashboard data. Give me a 2-sentence summary of my financial health and 1 actionable tip."
+                })
+            });
+            const result = await res.json();
+
+            if (res.ok) {
+                // Set state AND persist to localStorage
+                setAiInsight(result.reply);
+                localStorage.setItem('aiInsight', result.reply);
+            }
+        } catch (e) {
+            console.error("AI Error:", e);
+            setAiInsight("I couldn't analyze your data right now.");
+        } finally {
+            setAiLoading(false);
+        }
+    };
+
+    // 1. Main Dashboard Data Fetching
     useEffect(() => {
         const fetchDashboard = async () => {
             try {
                 const token = localStorage.getItem("token");
-                const [dashRes] = await Promise.all([
-                    fetch("http://localhost:5000/api/dashboard", { headers: { Authorization: token } })
-                ]);
+                const res = await fetch("http://localhost:5000/api/dashboard", { headers: { Authorization: token } });
 
-                if (dashRes.ok) {
-                    const dashData = await dashRes.json();
+                if (res.ok) {
+                    const dashData = await res.json();
                     setData({
                         netWorth: dashData.netWorth,
+                        netWorthChange: dashData.netWorthChange || 0,
                         wallets: dashData.wallets,
                         recentTransactions: dashData.recentTransactions,
-                        budgets: dashData.budgets, // Pinned Only
-                        goals: dashData.goals      // Pinned Only
+                        budgets: dashData.budgets,
+                        goals: dashData.goals
                     });
                 }
             } catch (error) { console.error(error); }
             finally { setLoading(false); }
         };
         fetchDashboard();
-    }, [refreshTrigger]);
+    }, [refreshTrigger]); // Data refreshes when a transaction/wallet is added
+
+    // 2. AI Insight Initial Load (Runs only once on mount IF localStorage is empty)
+    useEffect(() => {
+        // Only run if aiInsight state (loaded from localStorage) is empty
+        if (!aiInsight) {
+            generateInsight();
+        }
+    }, []); // Empty dependency array ensures it runs only once
 
     const handleTxClick = (tx) => { setSelectedTx(tx); setIsTxModalOpen(true); };
 
@@ -68,11 +114,62 @@ const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh 
 
             {/* Top Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+                {/* 🟢 Net Worth Card (Dynamic) */}
                 <div className="md:col-span-1 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
-                    <div className="relative z-10"><div className="flex items-center gap-2 text-blue-100 mb-2"><Sparkles size={18} /> <span>Total Net Worth</span></div><h2 className="text-4xl font-bold tracking-tight mb-4">${Number(data.netWorth).toLocaleString('en-US', { minimumFractionDigits: 2 })}</h2><div className="inline-flex items-center px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm text-sm font-medium"><ArrowUpRight size={16} className="mr-1" /> +2.4% this month</div></div><div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-2 text-blue-100 mb-2">
+                            <Sparkles size={18} /> <span>Total Net Worth</span>
+                        </div>
+
+                        <h2 className="text-4xl font-bold tracking-tight mb-4">
+                            ${Number(data.netWorth).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        </h2>
+
+                        <div className={`inline-flex items-center px-3 py-1 rounded-full backdrop-blur-sm text-sm font-medium ${
+                            parseFloat(data.netWorthChange) >= 0
+                                ? 'bg-white/20 text-white'
+                                : 'bg-red-500/30 text-white'
+                        }`}>
+                            {parseFloat(data.netWorthChange) >= 0 ? (
+                                <ArrowUpRight size={16} className="mr-1" />
+                            ) : (
+                                <ArrowDownRight size={16} className="mr-1" />
+                            )}
+                            {Math.abs(data.netWorthChange)}% this month
+                        </div>
+                    </div>
+                    <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
                 </div>
-                <Card className="md:col-span-2 border-l-4 border-l-blue-500 flex flex-col justify-center">
-                    <div className="flex items-start gap-4"><div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-2xl text-blue-600 dark:text-blue-400"><Lightbulb size={24} /></div><div className="flex-1"><h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">AI Financial Insight</h3><p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm">Based on your spending, you've used <strong>80%</strong> of your Food budget. Consider cooking at home for the rest of the week.</p><button onClick={() => setCurrentPage('advisor')} className="mt-3 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 flex items-center group">Ask AI Advisor <ArrowRight size={16} className="ml-1 transition-transform group-hover:translate-x-1" /></button></div></div>
+
+                {/* 🟢 AI Insight Card */}
+                <Card className="md:col-span-2 border-l-4 border-l-blue-500 flex flex-col justify-center relative">
+                    {/* Manual Refresh Button */}
+                    <button
+                        onClick={generateInsight}
+                        disabled={aiLoading}
+                        className="absolute top-4 right-4 text-gray-400 hover:text-blue-600 transition disabled:animate-spin"
+                        title="Refresh Insight"
+                    >
+                        {aiLoading ? <Loader2 size={18}/> : <RotateCw size={18}/>}
+                    </button>
+
+                    <div className="flex items-start gap-4">
+                        <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-2xl text-blue-600 dark:text-blue-400"><Lightbulb size={24} /></div>
+                        <div className="flex-1">
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">AI Financial Insight</h3>
+                            {aiLoading ? (
+                                <p className="text-gray-500 dark:text-gray-400 text-sm animate-pulse">Analyzing your latest transactions...</p>
+                            ) : (
+                                <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm">
+                                    {aiInsight || "Click refresh to generate an insight based on your current data."}
+                                </p>
+                            )}
+                            <button onClick={() => setCurrentPage('advisor')} className="mt-3 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 flex items-center group">
+                                Ask AI Advisor <ArrowRight size={16} className="ml-1 transition-transform group-hover:translate-x-1" />
+                            </button>
+                        </div>
+                    </div>
                 </Card>
             </div>
 
@@ -144,13 +241,13 @@ const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh 
                 </div>
             </div>
 
-            <TransactionDetailsModal isOpen={isTxModalOpen} onClose={() => setIsTxModalOpen(false)} transaction={selectedTx} onSuccess={onTriggerRefresh} />
+            <TransactionDetailsModal isOpen={isTxModalOpen} onClose={() => setIsTxModalOpen(false)} onSuccess={onTriggerRefresh} />
         </div>
     );
 };
 
+// 🔵 DASHBOARD MAIN COMPONENT
 export default function Dashboard() {
-    // ... (Main Layout logic remains the same as previous step) ...
     const [currentPage, setCurrentPage] = useState(() => localStorage.getItem("lastPage") || 'dashboard');
     const navigate = useNavigate();
     const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
@@ -168,7 +265,7 @@ export default function Dashboard() {
     const [isDarkMode, setIsDarkMode] = useState(() => { const saved = localStorage.getItem("theme"); return saved ? JSON.parse(saved) : true; });
     useEffect(() => { const root = window.document.documentElement; if (isDarkMode) { root.classList.add('dark'); localStorage.setItem("theme", "true"); } else { root.classList.remove('dark'); localStorage.setItem("theme", "false"); } }, [isDarkMode]);
     useEffect(() => { const handleClickOutside = (event) => { if (profileRef.current && !profileRef.current.contains(event.target)) setIsProfileOpen(false); if (notifRef.current && !notifRef.current.contains(event.target)) setIsNotifOpen(false); }; document.addEventListener("mousedown", handleClickOutside); return () => document.removeEventListener("mousedown", handleClickOutside); }, []);
-    const handleLogout = () => { localStorage.clear(); navigate("/login"); };
+    const handleLogout = () => { localStorage.clear(); localStorage.removeItem('aiInsight'); navigate("/login"); };
 
     const renderPage = () => {
         switch (currentPage) {

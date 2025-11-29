@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Plus, Tags, Pencil, Star, TrendingUp, Target,
-    CreditCard, Wallet, Banknote, Coins, ArrowUpRight
+    CreditCard, Wallet, Banknote, Coins, ArrowUpRight, Sparkles, Lightbulb, Loader2
 } from 'lucide-react';
 import { Card, SectionHeader, ProgressBar } from '../../components/DashboardUI';
 import BudgetModal from '../../components/BudgetModal';
@@ -9,7 +9,7 @@ import GoalModal from '../../components/GoalModal';
 import ManageCategoriesModal from '../../components/ManageCategoriesModal';
 import ContributeGoalModal from '../../components/ContributeGoalModal';
 import GoalHistoryModal from '../../components/GoalHistoryModal';
-import BudgetHistoryModal from '../../components/BudgetHistoryModal'; // 🟢 NEW IMPORT
+import BudgetHistoryModal from '../../components/BudgetHistoryModal';
 
 // Helper for Wallet Styles
 const getWalletStyle = (type) => {
@@ -32,17 +32,76 @@ export default function BudgetGoals({ setCurrentPage }) {
     const [categoryModalOpen, setCategoryModalOpen] = useState(false);
     const [contributeModalOpen, setContributeModalOpen] = useState(false);
     const [goalHistoryOpen, setGoalHistoryOpen] = useState(false);
-    const [budgetHistoryOpen, setBudgetHistoryOpen] = useState(false); // 🟢 NEW
+    const [budgetHistoryOpen, setBudgetHistoryOpen] = useState(false);
 
     // Selected Items
     const [selectedBudget, setSelectedBudget] = useState(null);
     const [selectedGoal, setSelectedGoal] = useState(null);
     const [contributeGoal, setContributeGoal] = useState(null);
     const [historyGoal, setHistoryGoal] = useState(null);
-    const [historyBudget, setHistoryBudget] = useState(null); // 🟢 NEW
+    const [historyBudget, setHistoryBudget] = useState(null);
+
+    // 🟢 AI States: Initialize aiBudgetInsight from localStorage
+    const [aiBudgetInsight, setAiBudgetInsight] = useState(() => localStorage.getItem('aiBudgetInsight') || '');
+    const [aiLoading, setAiLoading] = useState(false);
+
+
+    // 🟢 Function to call AI for Budget/Goal Summary
+    // This function will now accept optional data (for manual refresh)
+    const generateBudgetInsight = async (budgetData, goalData) => {
+        setAiLoading(true);
+        // Clear previous insight while fetching
+        setAiBudgetInsight('');
+
+        // Use current state data if no new data is provided (e.g., when clicking refresh button)
+        const currentBudgets = budgetData || budgets;
+        const currentGoals = goalData || goals;
+
+        try {
+            const token = localStorage.getItem("token");
+
+            // Format data to be sent to the AI
+            const context = {
+                budgets: currentBudgets.map(b => ({
+                    category: b.category_name,
+                    spent: parseFloat(b.spent),
+                    limit: parseFloat(b.limit_amount),
+                })),
+                goals: currentGoals.map(g => ({
+                    name: g.name,
+                    current: parseFloat(g.current_amount),
+                    target: parseFloat(g.target_amount),
+                }))
+            };
+
+            const message = `Analyze this list of current budgets and savings goals. Highlight any budget that is over 80% used and any goal that is significantly behind schedule (under 30% complete). Provide 1 actionable recommendation. Data: ${JSON.stringify(context)}`;
+
+            const res = await fetch("http://localhost:5000/api/ai/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": token },
+                body: JSON.stringify({ message })
+            });
+
+            const result = await res.json();
+            if (res.ok) {
+                // Update state AND persist to localStorage
+                setAiBudgetInsight(result.reply);
+                localStorage.setItem('aiBudgetInsight', result.reply);
+            }
+
+        } catch (e) {
+            console.error("AI Budget Error:", e);
+            setAiBudgetInsight("AI couldn't generate insights right now.");
+        } finally {
+            setAiLoading(false);
+        }
+    };
+
 
     // 🟢 Main Fetch Function
     const fetchAllData = useCallback(async () => {
+        let fetchedBudgets = [];
+        let fetchedGoals = [];
         try {
             const token = localStorage.getItem("token");
 
@@ -55,8 +114,12 @@ export default function BudgetGoals({ setCurrentPage }) {
             const dashData = await dashRes.json();
 
             if (budgetRes.ok) {
-                setBudgets(budgetData.budgets);
-                setGoals(budgetData.goals);
+                fetchedBudgets = budgetData.budgets;
+                fetchedGoals = budgetData.goals;
+                setBudgets(fetchedBudgets);
+                setGoals(fetchedGoals);
+
+                // 🔴 REMOVED: generateBudgetInsight is removed from here to stop auto-refresh.
             }
 
             if (dashRes.ok) {
@@ -67,7 +130,29 @@ export default function BudgetGoals({ setCurrentPage }) {
         finally { setLoading(false); }
     }, []);
 
+    // 1. Fetch all data on mount/success
     useEffect(() => { fetchAllData(); }, [fetchAllData]);
+
+    // 2. Initial AI Insight Load (Runs only once on mount IF localStorage is empty)
+    useEffect(() => {
+        // Only run if aiBudgetInsight state (loaded from localStorage) is empty
+        if (!aiBudgetInsight) {
+            // Need a quick local data fetch to generate the first insight accurately
+            const fetchInitialDataAndGenerateInsight = async () => {
+                try {
+                    const token = localStorage.getItem("token");
+                    const res = await fetch("http://localhost:5000/api/dashboard/budgets", { headers: { Authorization: token } });
+                    const data = await res.json();
+                    if (res.ok) {
+                        generateBudgetInsight(data.budgets, data.goals);
+                    }
+                } catch (e) {
+                    console.error("Failed initial insight data fetch", e);
+                }
+            }
+            fetchInitialDataAndGenerateInsight();
+        }
+    }, []); // Empty dependency array ensures it runs only once
 
     const togglePin = async (type, id, currentStatus) => {
         const url = type === 'budget'
@@ -101,7 +186,6 @@ export default function BudgetGoals({ setCurrentPage }) {
         setGoalHistoryOpen(true);
     };
 
-    // 🟢 NEW: Handler for Budget History
     const openBudgetHistory = (budget) => {
         setHistoryBudget(budget);
         setBudgetHistoryOpen(true);
@@ -123,6 +207,32 @@ export default function BudgetGoals({ setCurrentPage }) {
                     <button onClick={openNewGoal} className="flex items-center justify-center px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl transition shadow-md"><Plus size={18} className="mr-2"/> Goal</button>
                 </div>
             </div>
+
+            {/* 🟢 AI INSIGHT CARD (Persistent) */}
+            <Card className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/10 dark:to-blue-900/10 border-green-100 dark:border-green-800">
+                <div className="flex items-start gap-4">
+                    <div className="p-3 bg-green-100 dark:bg-green-900/50 rounded-2xl text-green-600 dark:text-green-400">
+                        <Lightbulb size={24} />
+                    </div>
+                    <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Goal & Budget Health Check</h3>
+
+                        {aiLoading ? (
+                            <p className="text-gray-500 dark:text-gray-400 text-sm animate-pulse flex items-center">
+                                <Loader2 size={16} className="mr-2 animate-spin" /> Analyzing goal progress and spending pace...
+                            </p>
+                        ) : (
+                            <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm">
+                                {aiBudgetInsight || "AI insight pending. Click refresh to get an assessment."}
+                            </p>
+                        )}
+
+                        <button onClick={() => generateBudgetInsight(budgets, goals)} className="mt-3 text-sm font-medium text-green-600 dark:text-green-400 hover:underline">
+                            {aiLoading ? '...' : 'Refresh Analysis'}
+                        </button>
+                    </div>
+                </div>
+            </Card>
 
             {/* WALLETS SECTION */}
             <section>
@@ -163,7 +273,7 @@ export default function BudgetGoals({ setCurrentPage }) {
                 </div>
             </section>
 
-            {/* 🟢 BUDGETS SECTION WITH CLICKABLE HISTORY */}
+            {/* BUDGETS SECTION */}
             <section>
                 <div className="flex items-center gap-2 mb-5">
                     <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400"><TrendingUp size={20} /></div>
@@ -180,7 +290,7 @@ export default function BudgetGoals({ setCurrentPage }) {
                         return (
                             <div
                                 key={budget.budget_id}
-                                onClick={() => openBudgetHistory(budget)} // 🟢 CLICK TO OPEN HISTORY
+                                onClick={() => openBudgetHistory(budget)}
                                 className="group relative bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition duration-200 cursor-pointer hover:border-blue-200 dark:hover:border-blue-800"
                             >
                                 <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>

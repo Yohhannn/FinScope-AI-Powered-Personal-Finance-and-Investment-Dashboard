@@ -145,6 +145,22 @@ const DashboardModel = {
             client.release();
         }
     },
+    getAllTransactions: async (userId) => {
+        return db.query(`
+            SELECT
+                t.transaction_id, t.name, t.amount, t.transaction_date, t.description,
+                t.type, /* Use t.type for transaction type */
+                t.created_at, t.wallet_id, t.category_id,
+                w.name as wallet_name,
+                c.name as category_name
+            FROM transaction t
+                     JOIN wallet w ON t.wallet_id = w.wallet_id
+                     LEFT JOIN category c ON t.category_id = c.category_id
+            WHERE w.user_id = $1
+            ORDER BY t.transaction_date ASC
+        `, [userId]);
+    },
+
 
 
     // 🟢 NEW: Auto-Rollover Expired Budgets
@@ -213,11 +229,90 @@ const DashboardModel = {
     // I am omitting them for brevity, but do not delete them!
 
     // ... (Existing functions like getRecentTransactions, getPinnedBudgets, etc...) ...
+// ... inside DashboardModel ...
+
+    // 🟢 FIX: Explicitly select transaction columns to avoid ambiguity
     getTransactionsByWalletId: async (walletId) => {
-        return db.query(`SELECT t.*, c.name as category_name FROM transaction t LEFT JOIN category c ON t.category_id = c.category_id WHERE t.wallet_id = $1 ORDER BY t.transaction_date DESC, t.created_at DESC`, [walletId]);
+        return db.query(`
+            SELECT
+                t.transaction_id, t.name, t.amount, t.transaction_date, t.description,
+                t.type, /* Explicitly select transaction type */
+                t.created_at, t.wallet_id, t.category_id,
+                c.name as category_name
+            FROM transaction t
+                     LEFT JOIN category c ON t.category_id = c.category_id
+            WHERE t.wallet_id = $1
+            ORDER BY t.transaction_date DESC, t.created_at DESC
+        `, [walletId]);
     },
+
+    // 🟢 FIX 2: getRecentTransactions (Explicit column selection)
     getRecentTransactions: async (userId) => {
-        return db.query(`SELECT t.*, w.name as wallet_name, c.name as category_name FROM transaction t JOIN wallet w ON t.wallet_id = w.wallet_id LEFT JOIN category c ON t.category_id = c.category_id WHERE w.user_id = $1 ORDER BY t.transaction_date DESC, t.created_at DESC LIMIT 5`, [userId]);
+        return db.query(`
+            SELECT
+                t.transaction_id, t.name, t.amount, t.transaction_date, t.description,
+                t.type, /* Explicitly select transaction type */
+                t.created_at, t.wallet_id, t.category_id,
+                w.name as wallet_name,
+                c.name as category_name
+            FROM transaction t
+                     JOIN wallet w ON t.wallet_id = w.wallet_id
+                     LEFT JOIN category c ON t.category_id = c.category_id
+            WHERE w.user_id = $1
+            ORDER BY t.transaction_date DESC, t.created_at DESC
+                LIMIT 5
+        `, [userId]);
+    },
+
+    // 🟢 FIX 3: getAllTransactions (For Analytics - Explicit column selection)
+    getAllTransactions: async (userId) => {
+        return db.query(`
+            SELECT
+                t.transaction_id, t.name, t.amount, t.transaction_date, t.description,
+                t.type, /* Explicitly select transaction type */
+                t.created_at, t.wallet_id, t.category_id,
+                w.name as wallet_name,
+                c.name as category_name
+            FROM transaction t
+                     JOIN wallet w ON t.wallet_id = w.wallet_id
+                     LEFT JOIN category c ON t.category_id = c.category_id
+            WHERE w.user_id = $1
+            ORDER BY t.transaction_date ASC
+        `, [userId]);
+    },
+
+    // 🟢 FIX 4: getBudgetTransactions (Explicit column selection)
+    getBudgetTransactions: async (budgetId) => {
+        const budgetRes = await db.query('SELECT * FROM budget WHERE budget_id = $1', [budgetId]);
+        if (budgetRes.rows.length === 0) throw new Error("Budget not found");
+        const budget = budgetRes.rows[0];
+
+        return db.query(`
+            SELECT
+                t.transaction_id, t.name, t.amount, t.transaction_date, t.description,
+                t.type, /* Explicitly naming transaction type */
+                t.created_at, t.wallet_id, t.category_id,
+                w.name as wallet_name
+            FROM transaction t
+            JOIN wallet w ON t.wallet_id = w.wallet_id
+            WHERE t.category_id = $1
+              AND t.type = 'expense'
+              AND t.transaction_date BETWEEN $2 AND $3
+            ORDER BY t.transaction_date DESC
+        `, [budget.category_id, budget.start_date, budget.end_date]);
+    },
+
+    // 🟢 FIX 5: getMonthlyNetFlow (Explicitly name the transaction table in the WHERE clause)
+    getMonthlyNetFlow: async (userId) => {
+        return db.query(`
+            SELECT 
+                SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END) as total_income,
+                SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END) as total_expense
+            FROM transaction t
+            JOIN wallet w ON t.wallet_id = w.wallet_id
+            WHERE w.user_id = $1
+            AND t.transaction_date >= date_trunc('month', CURRENT_DATE)
+        `, [userId]);
     },
     getPinnedBudgets: async (userId) => {
         return db.query(`SELECT b.*, c.name as category_name, (SELECT COALESCE(SUM(ABS(amount)), 0) FROM transaction t WHERE t.category_id = b.category_id AND t.type = 'expense' AND t.transaction_date BETWEEN b.start_date AND b.end_date) as spent FROM budget b JOIN category c ON b.category_id = c.category_id WHERE b.user_id = $1 AND b.is_pinned = TRUE LIMIT 4`, [userId]);
@@ -230,25 +325,7 @@ const DashboardModel = {
     },
 // ... inside DashboardModel ...
 
-    // 🟢 GET BUDGET TRANSACTIONS
-    getBudgetTransactions: async (budgetId) => {
-        // 1. Get the budget details to know the category and dates
-        const budgetRes = await db.query('SELECT * FROM budget WHERE budget_id = $1', [budgetId]);
-        if (budgetRes.rows.length === 0) throw new Error("Budget not found");
 
-        const budget = budgetRes.rows[0];
-
-        // 2. Find transactions that match this budget's criteria
-        return db.query(`
-            SELECT t.*, w.name as wallet_name 
-            FROM transaction t
-            JOIN wallet w ON t.wallet_id = w.wallet_id
-            WHERE t.category_id = $1 
-            AND t.type = 'expense'
-            AND t.transaction_date BETWEEN $2 AND $3
-            ORDER BY t.transaction_date DESC
-        `, [budget.category_id, budget.start_date, budget.end_date]);
-    },
     getGoals: async (userId) => {
         return db.query('SELECT * FROM saving_goal WHERE user_id = $1 ORDER BY goal_id DESC', [userId]);
     },

@@ -54,6 +54,7 @@ npm -v
 # Install backend dependencies
 npm install
 npm install express pg cors dotenv bcrypt jsonwebtoken
+npm install @azure/openai @azure/core-auth
 
 Setup .env file. (example is in there named .env.example
 
@@ -72,6 +73,7 @@ cd frontend
 # Install frontend dependencies
 npm install
 npm install react-router-dom
+npm install recharts jspdf jspdf-autotable file-saver papaparse
 npm install lucide-react
 
 

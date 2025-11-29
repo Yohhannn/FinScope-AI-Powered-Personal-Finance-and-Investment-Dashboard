@@ -26,27 +26,43 @@ const DashboardController = {
         }
     },
 
-    // 🟢 DASHBOARD OVERVIEW
-// ... inside DashboardController ...
 
     // 🟢 DASHBOARD OVERVIEW
+// 🟢 DASHBOARD OVERVIEW (Updated with Net Worth % Calculation)
     getDashboardData: async (req, res) => {
         try {
             const userId = req.user.user_id;
 
-            // 1. AUTO-ROLLOVER: Check and update dates before fetching
-            await DashboardModel.rolloverBudgets(userId);
-
-            // 2. Now fetch data (It will now use the new dates)
+            // 1. Fetch Wallets (Current Net Worth)
             const wallets = await DashboardModel.getWallets(userId);
-            // ... (rest of your code is unchanged)
-            const totalBalance = wallets.rows.reduce((acc, curr) => acc + parseFloat(curr.balance), 0);
+            const currentNetWorth = wallets.rows.reduce((acc, curr) => acc + parseFloat(curr.balance), 0);
+
+            // 2. Fetch Monthly Flow (To calculate Start of Month Balance)
+            const flowResult = await DashboardModel.getMonthlyNetFlow(userId);
+            const income = parseFloat(flowResult.rows[0].total_income || 0);
+            const expense = parseFloat(flowResult.rows[0].total_expense || 0);
+
+            // Logic: StartBalance = Current - Income + Expense
+            // (We reverse the transactions to find where we started)
+            const netChange = income - expense;
+            const startOfMonthNetWorth = currentNetWorth - netChange;
+
+            // 3. Calculate Percentage
+            let percentageChange = 0;
+            if (startOfMonthNetWorth !== 0) {
+                percentageChange = ((currentNetWorth - startOfMonthNetWorth) / Math.abs(startOfMonthNetWorth)) * 100;
+            } else if (currentNetWorth > 0) {
+                percentageChange = 100; // From 0 to something is 100% growth
+            }
+
+            // 4. Fetch other data
             const transactions = await DashboardModel.getRecentTransactions(userId);
             const pinnedBudgets = await DashboardModel.getPinnedBudgets(userId);
             const pinnedGoals = await DashboardModel.getPinnedGoals(userId);
 
             res.json({
-                netWorth: totalBalance,
+                netWorth: currentNetWorth,
+                netWorthChange: percentageChange.toFixed(1), // 🟢 SEND THIS TO FRONTEND
                 wallets: wallets.rows,
                 recentTransactions: transactions.rows,
                 budgets: pinnedBudgets.rows,
@@ -526,6 +542,20 @@ const DashboardController = {
             res.status(500).json({ error: err.message });
         }
     },
+
+    // 🟢 GET ANALYTICS DATA
+    getAnalyticsData: async (req, res) => {
+        try {
+            const userId = req.user.user_id;
+            const transactions = await DashboardModel.getAllTransactions(userId);
+            res.json(transactions.rows);
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ error: "Server Error" });
+        }
+    },
+
+
 
     deleteCategory: async (req, res) => {
         try {

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
     Wallet, Plus, Pencil, CreditCard, Banknote, Coins,
-    ArrowUpRight, ArrowDownRight, Search, Filter, ArrowRightLeft
+    ArrowUpRight, ArrowDownRight, Search, Filter, ArrowRightLeft, Sparkles, Loader2
 } from 'lucide-react';
 import { Card, SectionHeader } from '../../components/DashboardUI';
 import EditWalletModal from '../../components/EditWalletModal';
 import TransactionDetailsModal from '../../components/TransactionDetailsModal';
 import WalletDetailsModal from '../../components/WalletDetailsModal';
-import TransferModal from '../../components/TransferModal'; // 🟢 NEW IMPORT
+import TransferModal from '../../components/TransferModal';
 
 const getWalletStyle = (type) => {
     const t = type?.toLowerCase();
@@ -25,30 +25,111 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
     const [filterType, setFilterType] = useState('all');
     const [showFilter, setShowFilter] = useState(false);
 
+    // 🟢 AI States: Initialize aiWalletInsight from localStorage
+    const [aiWalletInsight, setAiWalletInsight] = useState(() => localStorage.getItem('aiWalletInsight') || '');
+    const [aiLoading, setAiLoading] = useState(false);
+
     // Modals
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-    const [isTransferModalOpen, setIsTransferModalOpen] = useState(false); // 🟢 NEW STATE
+    const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
     const [selectedWallet, setSelectedWallet] = useState(null);
     const [selectedTx, setSelectedTx] = useState(null);
     const [isTxModalOpen, setIsTxModalOpen] = useState(false);
     const [detailWalletId, setDetailWalletId] = useState(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
+    // 🟢 Function to call AI for Wallet Summary
+    // Note: We use a wrapper function for the button click, but the useEffect will call generateWalletInsight directly
+    const generateWalletInsight = async (walletsData, netWorth) => {
+        setAiLoading(true);
+        // Clear previous insight while fetching
+        setAiWalletInsight('');
+
+        // Use the current state values if explicit data isn't passed (for manual refresh click)
+        const currentWallets = walletsData || wallets;
+        const currentNetWorth = netWorth || 0; // Net worth isn't easily accessible here, but let's assume 0 if not fetched yet.
+
+        try {
+            const token = localStorage.getItem("token");
+
+            // Generate a focused prompt for liquidity and asset type assessment
+            const walletSummary = currentWallets.map(w => ({
+                name: w.name,
+                type: w.type,
+                balance: w.balance,
+                available: w.available_balance // Use available_balance if present
+            }));
+
+            const message = `Analyze this list of user wallets (Total Net Worth: $${currentNetWorth.toLocaleString()}) and provide a 1-sentence assessment of their current liquidity or asset diversification. Wallets: ${JSON.stringify(walletSummary)}`;
+
+            const res = await fetch("http://localhost:5000/api/ai/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": token },
+                body: JSON.stringify({ message })
+            });
+
+            const result = await res.json();
+            if (res.ok) {
+                // Update state AND localStorage
+                setAiWalletInsight(result.reply);
+                localStorage.setItem('aiWalletInsight', result.reply);
+            }
+
+        } catch (e) {
+            console.error("Wallet AI Error:", e);
+            setAiWalletInsight("AI couldn't analyze the asset allocation right now.");
+        } finally {
+            setAiLoading(false);
+        }
+    };
+
+    // 1. Data Fetching (Runs on refreshTrigger change)
     useEffect(() => {
         const fetchData = async () => {
             try {
                 const token = localStorage.getItem("token");
                 const res = await fetch("http://localhost:5000/api/dashboard", { headers: { Authorization: token } });
                 const data = await res.json();
+
                 if (res.ok) {
                     setWallets(data.wallets);
                     setTransactions(data.recentTransactions);
+
+                    // 🔴 REMOVED: generateWalletInsight(data.wallets, data.netWorth);
+                    // The AI insight is no longer triggered by data refresh.
                 }
             } catch (err) { console.error(err); }
             finally { setLoading(false); }
         };
         fetchData();
     }, [refreshTrigger]);
+
+    // 2. Initial AI Insight Load (Runs only once on mount IF localStorage is empty)
+    useEffect(() => {
+        // Only run if aiWalletInsight state (loaded from localStorage) is empty
+        if (!aiWalletInsight) {
+            // Need a quick local data fetch to generate the first insight accurately
+            const fetchInitialDataAndGenerateInsight = async () => {
+                try {
+                    const token = localStorage.getItem("token");
+                    const res = await fetch("http://localhost:5000/api/dashboard", { headers: { Authorization: token } });
+                    const data = await res.json();
+                    if (res.ok) {
+                        generateWalletInsight(data.wallets, data.netWorth);
+                    }
+                } catch (e) {
+                    console.error("Failed initial insight data fetch", e);
+                }
+            }
+            fetchInitialDataAndGenerateInsight();
+        }
+    }, []); // Empty dependency array ensures it runs only once
+
+    const handleManualRefresh = () => {
+        // Manually trigger data fetch and then insight generation using current data
+        // We'll call generateInsight with the current state data
+        generateWalletInsight(wallets);
+    }
 
     const filteredTransactions = transactions.filter(tx => {
         const matchesSearch =
@@ -70,7 +151,6 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div><h2 className="text-3xl font-bold text-gray-900 dark:text-white">My Assets</h2><p className="text-gray-500 dark:text-gray-400 mt-1">Manage your wallets and view recent activity.</p></div>
                 <div className="flex flex-wrap gap-3">
-                    {/* 🟢 Transfer Button */}
                     <button onClick={() => setIsTransferModalOpen(true)} className="flex items-center justify-center px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition shadow-sm">
                         <ArrowRightLeft size={18} className="mr-2" /> Transfer
                     </button>
@@ -82,6 +162,35 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
                     </button>
                 </div>
             </div>
+
+            {/* 🟢 AI INSIGHT CARD (Persistent) */}
+            <Card className="border-l-4 border-l-purple-500">
+                <div className="flex items-start gap-4">
+                    <div className="p-3 bg-purple-100 dark:bg-purple-900/50 rounded-2xl text-purple-600 dark:text-purple-400">
+                        <Sparkles size={24} />
+                    </div>
+                    <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Asset Allocation Health</h3>
+                        {aiLoading ? (
+                            <p className="text-gray-500 dark:text-gray-400 text-sm animate-pulse flex items-center">
+                                <Loader2 size={16} className="mr-2 animate-spin" /> Analyzing wallet types...
+                            </p>
+                        ) : (
+                            <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm">
+                                {aiWalletInsight || "Click 'Refresh Assessment' to generate an insight based on your current data."}
+                            </p>
+                        )}
+                        <button
+                            // 💡 Use the new manual handler
+                            onClick={handleManualRefresh}
+                            disabled={aiLoading}
+                            className="mt-3 text-xs font-medium text-purple-600 dark:text-purple-400 hover:underline"
+                        >
+                            {aiLoading ? '...' : 'Refresh Assessment'}
+                        </button>
+                    </div>
+                </div>
+            </Card>
 
             {/* Wallets Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
