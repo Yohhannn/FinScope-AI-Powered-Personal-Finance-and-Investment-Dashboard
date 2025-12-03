@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, ArrowRightLeft, AlertTriangle } from 'lucide-react';
 
-// 🚀 NEW: Define the base API URL from the environment variable
-const BASE_URL = process.env.REACT_APP_API_URL;
-
 export default function TransferModal({ isOpen, onClose, onSuccess }) {
     const [wallets, setWallets] = useState([]);
     const [sourceId, setSourceId] = useState('');
@@ -19,26 +16,12 @@ export default function TransferModal({ isOpen, onClose, onSuccess }) {
             setAmount('');
             setSourceId('');
             setDestId('');
-
-            if (!BASE_URL) {
-                setError("API Configuration Error: BASE_URL is not set.");
-                return;
-            }
-
             const fetchWallets = async () => {
                 const token = localStorage.getItem("token");
                 try {
-                    // ✅ Use BASE_URL here for data fetching
-                    const res = await fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } });
+                    const res = await fetch("http://localhost:5000/api/dashboard", { headers: { Authorization: token } });
                     const data = await res.json();
-                    if (res.ok) {
-                        setWallets(data.wallets || []);
-                        // Set defaults if wallets exist
-                        if (data.wallets.length >= 2) {
-                            setSourceId(data.wallets[0].wallet_id);
-                            setDestId(data.wallets[1].wallet_id);
-                        }
-                    }
+                    if (res.ok) setWallets(data.wallets || []);
                 } catch (e) { console.error(e); }
             };
             fetchWallets();
@@ -49,11 +32,6 @@ export default function TransferModal({ isOpen, onClose, onSuccess }) {
         e.preventDefault();
         setError('');
 
-        if (!BASE_URL) {
-            setError("API Configuration Error: BASE_URL is not set.");
-            return;
-        }
-
         if (sourceId === destId) {
             setError("Source and Destination wallets cannot be the same.");
             return;
@@ -62,8 +40,7 @@ export default function TransferModal({ isOpen, onClose, onSuccess }) {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
-            // ✅ Use BASE_URL here for the POST request
-            const res = await fetch(`${BASE_URL}/dashboard/transfer`, {
+            const res = await fetch("http://localhost:5000/api/dashboard/transfer", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: token },
                 body: JSON.stringify({

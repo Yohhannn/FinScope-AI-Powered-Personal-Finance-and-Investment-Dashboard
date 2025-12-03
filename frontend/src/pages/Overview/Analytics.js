@@ -9,30 +9,11 @@ import {
     XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     AreaChart, Area
 } from 'recharts';
-// Removed imports for file-saver, papaparse, jspdf, and jspdf-autotable to fix compilation.
-// Functional imports remaining:
-// import { saveAs } from 'file-saver';
-// import Papa from 'papaparse';
-// import jsPDF from 'jspdf';
-// import 'jspdf-autotable';
-
-// --- Placeholder Components for Runnability ---
-// Replace these with your actual imported components in your final project structure.
-const Card = ({ children, className = '' }) => (
-    <div className={`bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 ${className}`}>
-        {children}
-    </div>
-);
-const SectionHeader = ({ title, actions }) => (
-    <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{title}</h2>
-        {actions}
-    </div>
-);
-// --- End Placeholder Components ---
-
-// 🚀 NEW: Define the base API URL from the environment variable
-const BASE_URL = process.env.REACT_APP_API_URL;
+import { saveAs } from 'file-saver';
+import Papa from 'papaparse';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import { Card, SectionHeader } from '../../components/DashboardUI';
 
 export default function Analytics() {
     const [transactions, setTransactions] = useState([]);
@@ -61,17 +42,9 @@ export default function Analytics() {
     }, []);
 
     const fetchData = async () => {
-        // ⚠️ Configuration check
-        if (!BASE_URL) {
-            console.error("Configuration Error: API URL is missing. Cannot fetch data.");
-            setLoading(false);
-            return;
-        }
-
         try {
             const token = localStorage.getItem("token");
-            // ✅ Use BASE_URL here
-            const res = await fetch(`${BASE_URL}/dashboard/analytics`, {
+            const res = await fetch("http://localhost:5000/api/dashboard/analytics", {
                 headers: { Authorization: token }
             });
 
@@ -158,14 +131,6 @@ export default function Analytics() {
     // 🟢 AI RECOMMENDER
     const getRecommendations = async () => {
         setAnalyzing(true);
-
-        // ⚠️ Configuration check
-        if (!BASE_URL) {
-            setAnalyzing(false);
-            alert("Configuration Error: API URL is missing. Cannot generate recommendations.");
-            return;
-        }
-
         try {
             const token = localStorage.getItem("token");
 
@@ -176,8 +141,7 @@ export default function Analytics() {
                 recent_trend: monthlyData.slice(-3) // Last 3 months
             };
 
-            // ✅ Use BASE_URL here
-            const res = await fetch(`${BASE_URL}/ai/chat`, {
+            const res = await fetch("http://localhost:5000/api/ai/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": token },
                 body: JSON.stringify({
@@ -201,12 +165,9 @@ export default function Analytics() {
     };
 
     const exportCSV = () => {
-        // --- FIX: Replace external library usage with placeholder ---
-        console.log("Export functionality disabled in this environment. To enable, install papaparse and file-saver.");
-        alert("CSV export is disabled in this environment. Please install the necessary libraries locally.");
-        // const csv = Papa.unparse(transactions);
-        // const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        // saveAs(blob, "FinScope_Analytics.csv");
+        const csv = Papa.unparse(transactions);
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        saveAs(blob, "FinScope_Analytics.csv");
     };
 
     if (loading) return <div className="flex h-64 items-center justify-center text-gray-500">Loading analytics...</div>;

@@ -1,10 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Bot, User, Sparkles, Loader2, Trash2, Upload, X } from 'lucide-react';
 
-// 🚀 NEW: Define the base API URL from the environment variable
-// You must set REACT_APP_API_URL (e.g., https://your-digital-ocean-app.com/api)
-const BASE_URL = process.env.REACT_APP_API_URL;
-
 // Define the initial welcome message structure
 const initialMessage = { role: 'assistant', content: "Hello! I'm your FinScope AI Advisor. I have access to your wallets, budgets, and goals. How can I help you optimize your finances today?" };
 
@@ -124,12 +120,6 @@ export default function AIAdvisor() {
         let displayUserMessage = input.trim();
         if (!displayUserMessage && !pdfContext) return;
 
-        // ⚠️ Check if BASE_URL is defined (crucial for deployment)
-        if (!BASE_URL) {
-            setMessages(prev => [...prev, { role: 'assistant', content: "API Configuration Error: The BASE_URL is not set. Cannot send message." }]);
-            return;
-        }
-
         // If there's no typed message but there is PDF context, use a default analysis prompt
         if (!displayUserMessage && pdfContext) {
             displayUserMessage = "Analyze the uploaded financial data in the context.";
@@ -168,8 +158,7 @@ export default function AIAdvisor() {
 
             const messageToSend = promptContent;
 
-            // ✅ Use the BASE_URL environment variable here
-            const res = await fetch(`${BASE_URL}/ai/chat`, {
+            const res = await fetch("http://localhost:5000/api/ai/chat", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

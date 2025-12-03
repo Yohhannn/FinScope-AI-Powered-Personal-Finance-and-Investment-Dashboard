@@ -1,8 +1,6 @@
+// components/GoalHistoryModal.js
 import React, { useEffect, useState } from 'react';
 import { X, Trash2, Calendar, Wallet, ArrowRight } from 'lucide-react';
-
-// 🚀 NEW: Define the base API URL from the environment variable
-const BASE_URL = process.env.REACT_APP_API_URL;
 
 export default function GoalHistoryModal({ isOpen, onClose, goal, onRefresh }) {
     const [transactions, setTransactions] = useState([]);
@@ -12,20 +10,13 @@ export default function GoalHistoryModal({ isOpen, onClose, goal, onRefresh }) {
         if (isOpen && goal) {
             fetchHistory();
         }
-    }, [isOpen, goal]); // Dependency array simplified as per original structure
+    }, [isOpen, goal]);
 
     const fetchHistory = async () => {
-        if (!BASE_URL) {
-            console.error("API Configuration Error: BASE_URL is not set.");
-            setLoading(false);
-            return;
-        }
-
         try {
             setLoading(true);
             const token = localStorage.getItem("token");
-            // ✅ Use BASE_URL here for the GET request
-            const res = await fetch(`${BASE_URL}/dashboard/goal/${goal.goal_id}/transactions`, {
+            const res = await fetch(`http://localhost:5000/api/dashboard/goal/${goal.goal_id}/transactions`, {
                 headers: { Authorization: token }
             });
             const data = await res.json();
@@ -38,16 +29,11 @@ export default function GoalHistoryModal({ isOpen, onClose, goal, onRefresh }) {
     };
 
     const handleRevert = async (txId) => {
-        if (!BASE_URL) {
-            alert("API Configuration Error: BASE_URL is not set.");
-            return;
-        }
         if (!window.confirm("Are you sure you want to revert this contribution? Funds will return to the wallet.")) return;
 
         try {
             const token = localStorage.getItem("token");
-            // ✅ Use BASE_URL here for the DELETE request
-            const res = await fetch(`${BASE_URL}/dashboard/goal/transaction/${txId}`, {
+            const res = await fetch(`http://localhost:5000/api/dashboard/goal/transaction/${txId}`, {
                 method: 'DELETE',
                 headers: { Authorization: token }
             });
@@ -113,7 +99,7 @@ export default function GoalHistoryModal({ isOpen, onClose, goal, onRefresh }) {
                                             {parseFloat(tx.amount) > 0 ? '+' : ''}${Math.abs(tx.amount).toLocaleString()}
                                         </span>
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); handleRevert(tx.transaction_id); }}
+                                            onClick={() => handleRevert(tx.transaction_id)}
                                             className="opacity-0 group-hover:opacity-100 p-2 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition"
                                             title="Revert Transaction"
                                         >

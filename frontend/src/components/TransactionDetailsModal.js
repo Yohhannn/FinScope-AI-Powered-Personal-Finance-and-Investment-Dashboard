@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, Edit2, Save } from 'lucide-react';
 
-// 🚀 NEW: Define the base API URL from the environment variable
-const BASE_URL = process.env.REACT_APP_API_URL;
-
 const Modal = ({ isOpen, onClose, children }) => {
     if (!isOpen) return null;
     return (
@@ -52,18 +49,13 @@ export default function TransactionDetailsModal({ isOpen, onClose, transaction, 
     // Fetch Data when entering Edit Mode
     useEffect(() => {
         if (isEditing) {
-            if (!BASE_URL) {
-                alert("API Configuration Error: BASE_URL is not set.");
-                return;
-            }
             const fetchData = async () => {
                 const token = localStorage.getItem("token");
                 try {
-                    // ✅ Use BASE_URL here for all data fetches
                     const [wRes, cRes, bRes] = await Promise.all([
-                        fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } }),
-                        fetch(`${BASE_URL}/dashboard/categories`, { headers: { Authorization: token } }),
-                        fetch(`${BASE_URL}/dashboard/budgets`, { headers: { Authorization: token } })
+                        fetch("http://localhost:5000/api/dashboard", { headers: { Authorization: token } }),
+                        fetch("http://localhost:5000/api/dashboard/categories", { headers: { Authorization: token } }),
+                        fetch("http://localhost:5000/api/dashboard/budgets", { headers: { Authorization: token } })
                     ]);
 
                     if (wRes.ok) { const d = await wRes.json(); setWallets(d.wallets); }
@@ -85,7 +77,7 @@ export default function TransactionDetailsModal({ isOpen, onClose, transaction, 
         }
     }, [isEditing, transaction]);
 
-    // Handle Budget Change (Note: This is currently not used in the UI but the handler logic is maintained)
+    // Handle Budget Change
     const handleBudgetChange = (e) => {
         const budgetId = e.target.value;
         setSelectedBudget(budgetId);
@@ -102,16 +94,10 @@ export default function TransactionDetailsModal({ isOpen, onClose, transaction, 
     };
 
     const handleDelete = async () => {
-        if (!BASE_URL) {
-            alert("API Configuration Error: BASE_URL is not set.");
-            return;
-        }
-
         if (!window.confirm("Are you sure you want to delete this transaction?")) return;
         try {
             const token = localStorage.getItem("token");
-            // ✅ Use BASE_URL here for the DELETE request
-            const res = await fetch(`${BASE_URL}/dashboard/transaction/${transaction.transaction_id}`, {
+            const res = await fetch(`http://localhost:5000/api/dashboard/transaction/${transaction.transaction_id}`, {
                 method: "DELETE",
                 headers: { Authorization: token }
             });
@@ -128,16 +114,9 @@ export default function TransactionDetailsModal({ isOpen, onClose, transaction, 
 
     const handleUpdate = async (e) => {
         e.preventDefault();
-
-        if (!BASE_URL) {
-            alert("API Configuration Error: BASE_URL is not set.");
-            return;
-        }
-
         try {
             const token = localStorage.getItem("token");
-            // ✅ Use BASE_URL here for the PUT request
-            const res = await fetch(`${BASE_URL}/dashboard/transaction/${transaction.transaction_id}`, {
+            const res = await fetch(`http://localhost:5000/api/dashboard/transaction/${transaction.transaction_id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json", Authorization: token },
                 body: JSON.stringify(form)

@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, AlertTriangle, Lock } from 'lucide-react';
 
-// 🚀 NEW: Define the base API URL from the environment variable
-const BASE_URL = process.env.REACT_APP_API_URL;
-
 export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
     const [form, setForm] = useState({ name: '', target_amount: '', current_amount: '0', wallet_id: '' });
     const [wallets, setWallets] = useState([]);
@@ -13,16 +10,10 @@ export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
     useEffect(() => {
         if(isOpen) {
             setError('');
-            if (!BASE_URL) {
-                setError("API Configuration Error: BASE_URL is not set.");
-                return;
-            }
-
             const fetchWallets = async () => {
                 const token = localStorage.getItem("token");
                 try {
-                    // ✅ Use BASE_URL here for data fetching
-                    const res = await fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } });
+                    const res = await fetch("http://localhost:5000/api/dashboard", { headers: { Authorization: token } });
                     if(res.ok) {
                         const data = await res.json();
                         setWallets(data.wallets || []);
@@ -32,10 +23,7 @@ export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
                             setForm(f => ({ ...f, wallet_id: data.wallets[0].wallet_id }));
                         }
                     }
-                } catch(e) {
-                    console.error(e);
-                    setError("Failed to load wallet data.");
-                }
+                } catch(e) { console.error(e); }
             };
             fetchWallets();
 
@@ -50,7 +38,7 @@ export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
                 setForm({ name: '', target_amount: '', current_amount: '0', wallet_id: '' });
             }
         }
-    }, [isOpen, goal, BASE_URL]); // Dependency added for BASE_URL
+    }, [isOpen, goal]);
 
     const getDisplayBalance = (walletId) => {
         const w = wallets.find(w => String(w.wallet_id) === String(walletId));
@@ -62,12 +50,6 @@ export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
         e.preventDefault();
         setError('');
         setLoading(true);
-
-        if (!BASE_URL) {
-            setError("API Configuration Error: BASE_URL is not set.");
-            setLoading(false);
-            return;
-        }
 
         const initialSave = parseFloat(form.current_amount || 0);
 
@@ -82,8 +64,7 @@ export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
         }
 
         const token = localStorage.getItem("token");
-        // ✅ Use BASE_URL here for the POST/PUT request
-        const url = goal ? `${BASE_URL}/dashboard/goal/${goal.goal_id}` : `${BASE_URL}/dashboard/goal`;
+        const url = goal ? `http://localhost:5000/api/dashboard/goal/${goal.goal_id}` : "http://localhost:5000/api/dashboard/goal";
         const method = goal ? "PUT" : "POST";
 
         try {
@@ -110,18 +91,10 @@ export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
     };
 
     const handleDelete = async () => {
-        if (!BASE_URL) {
-            alert("API Configuration Error: BASE_URL is not set.");
-            return;
-        }
-
         if(!window.confirm("Delete this goal?")) return;
         const token = localStorage.getItem("token");
-        // ✅ Use BASE_URL here for the DELETE request
-        await fetch(`${BASE_URL}/dashboard/goal/${goal.goal_id}`, { method: "DELETE", headers: { Authorization: token } });
-
-        onSuccess();
-        onClose();
+        await fetch(`http://localhost:5000/api/dashboard/goal/${goal.goal_id}`, { method: "DELETE", headers: { Authorization: token } });
+        onSuccess(); onClose();
     };
 
     if (!isOpen) return null;

@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
-// 🚀 NEW: Define the base API URL from the environment variable
-const BASE_URL = process.env.REACT_APP_API_URL;
-
 const Modal = ({ isOpen, onClose, title, children }) => {
     if (!isOpen) return null;
     return (
@@ -19,7 +16,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
     );
 };
 
-export default function EditWalletModal({ isOpen, onClose, wallet, onSuccess }) {
+export default function EditWalletModal({ isOpen, onClose, wallet }) {
     // Form State
     const [name, setName] = useState('');
     const [type, setType] = useState('bank');
@@ -40,15 +37,10 @@ export default function EditWalletModal({ isOpen, onClose, wallet, onSuccess }) 
         e.preventDefault();
         if (!wallet) return;
 
-        if (!BASE_URL) {
-            alert("API Configuration Error: BASE_URL is not set.");
-            return;
-        }
-
         try {
             const token = localStorage.getItem("token");
-            // ✅ Use BASE_URL here for the PUT request
-            const response = await fetch(`${BASE_URL}/dashboard/wallet/${wallet.wallet_id}`, {
+            // 🟢 PUT Request to update specific wallet ID
+            const response = await fetch(`http://localhost:5000/api/dashboard/wallet/${wallet.wallet_id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json", "Authorization": token },
                 body: JSON.stringify({
@@ -61,9 +53,8 @@ export default function EditWalletModal({ isOpen, onClose, wallet, onSuccess }) 
 
             if(response.ok) {
                 alert("Wallet Updated Successfully!");
-                // 🟢 Changed to use onSuccess prop instead of window.location.reload()
-                if (onSuccess) onSuccess();
                 onClose();
+                window.location.reload();
             } else {
                 const err = await response.json();
                 alert("Failed: " + (err.error || "Unknown error"));

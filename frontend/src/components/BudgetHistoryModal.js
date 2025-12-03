@@ -1,8 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Calendar, Wallet, TrendingDown } from 'lucide-react';
-
-// 🚀 NEW: Define the base API URL from the environment variable
-const BASE_URL = process.env.REACT_APP_API_URL;
 
 export default function BudgetHistoryModal({ isOpen, onClose, budget }) {
     const [transactions, setTransactions] = useState([]);
@@ -12,23 +9,13 @@ export default function BudgetHistoryModal({ isOpen, onClose, budget }) {
         if (isOpen && budget) {
             fetchHistory();
         }
-        // Dependency array updated to include fetchHistory to satisfy linter rule,
-        // although we define fetchHistory below using useCallback for best practice
     }, [isOpen, budget]);
 
     const fetchHistory = async () => {
-        if (!BASE_URL) {
-            console.error("API Configuration Error: BASE_URL is not set.");
-            setLoading(false);
-            return;
-        }
-
         try {
             setLoading(true);
             const token = localStorage.getItem("token");
-
-            // ✅ Use BASE_URL here for the GET request
-            const res = await fetch(`${BASE_URL}/dashboard/budget/${budget.budget_id}/transactions`, {
+            const res = await fetch(`http://localhost:5000/api/dashboard/budget/${budget.budget_id}/transactions`, {
                 headers: { Authorization: token }
             });
             const data = await res.json();

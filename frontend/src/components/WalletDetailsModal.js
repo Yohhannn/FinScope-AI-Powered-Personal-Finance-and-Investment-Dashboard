@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, ArrowUpRight, ArrowDownRight, Calendar, CreditCard, Banknote, Coins, TrendingUp } from 'lucide-react';
 
-// 🚀 NEW: Define the base API URL from the environment variable
-const BASE_URL = process.env.REACT_APP_API_URL;
-
 const Modal = ({ isOpen, onClose, children }) => {
     if (!isOpen) return null;
     return (
@@ -38,18 +35,10 @@ export default function WalletDetailsModal({ isOpen, onClose, walletId }) {
     useEffect(() => {
         if (isOpen && walletId) {
             setLoading(true);
-
-            if (!BASE_URL) {
-                console.error("API Configuration Error: BASE_URL is not set.");
-                setLoading(false);
-                return;
-            }
-
             const fetchData = async () => {
                 try {
                     const token = localStorage.getItem("token");
-                    // ✅ Use BASE_URL here for the GET request
-                    const res = await fetch(`${BASE_URL}/dashboard/wallet/${walletId}`, {
+                    const res = await fetch(`http://localhost:5000/api/dashboard/wallet/${walletId}`, {
                         headers: { Authorization: token }
                     });
                     if (res.ok) {
@@ -64,7 +53,7 @@ export default function WalletDetailsModal({ isOpen, onClose, walletId }) {
         } else {
             setData(null);
         }
-    }, [isOpen, walletId, BASE_URL]); // Dependency added for BASE_URL
+    }, [isOpen, walletId]);
 
     if (!isOpen) return null;
 

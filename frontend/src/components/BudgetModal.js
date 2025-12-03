@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, AlertTriangle } from 'lucide-react';
 
-// 🚀 NEW: Define the base API URL from the environment variable
-const BASE_URL = process.env.REACT_APP_API_URL;
-
 export default function BudgetModal({ isOpen, onClose, onSuccess, budget }) {
     const [form, setForm] = useState({ category_id: '', limit_amount: '', start_date: '', end_date: '' });
     const [categories, setCategories] = useState([]);
@@ -14,18 +11,13 @@ export default function BudgetModal({ isOpen, onClose, onSuccess, budget }) {
     useEffect(() => {
         if(isOpen) {
             setError('');
-            if (!BASE_URL) {
-                setError("API Configuration Error: BASE_URL is not set.");
-                return;
-            }
-
             const fetchData = async () => {
                 const token = localStorage.getItem("token");
                 try {
-                    // ✅ Use BASE_URL here for data fetching
+                    // Fetch Categories AND Existing Budgets
                     const [catRes, budgetRes] = await Promise.all([
-                        fetch(`${BASE_URL}/dashboard/categories`, { headers: { Authorization: token } }),
-                        fetch(`${BASE_URL}/dashboard/budgets`, { headers: { Authorization: token } })
+                        fetch("http://localhost:5000/api/dashboard/categories", { headers: { Authorization: token } }),
+                        fetch("http://localhost:5000/api/dashboard/budgets", { headers: { Authorization: token } })
                     ]);
 
                     if (catRes.ok && budgetRes.ok) {
@@ -34,10 +26,7 @@ export default function BudgetModal({ isOpen, onClose, onSuccess, budget }) {
                         setCategories(catData);
                         setExistingBudgets(budgetData.budgets || []); // Store existing budgets
                     }
-                } catch(e) {
-                    console.error(e);
-                    setError("Failed to load necessary data.");
-                }
+                } catch(e) { console.error(e); }
             };
             fetchData();
 
@@ -59,21 +48,15 @@ export default function BudgetModal({ isOpen, onClose, onSuccess, budget }) {
                 setForm({ category_id: '', limit_amount: '', start_date: firstDay, end_date: lastDay });
             }
         }
-    }, [isOpen, budget, BASE_URL]); // Added BASE_URL to dependency array
+    }, [isOpen, budget]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!BASE_URL) {
-            setError("API Configuration Error: BASE_URL is not set.");
-            return;
-        }
-
         setLoading(true);
         setError('');
 
         const token = localStorage.getItem("token");
-        // ✅ Use BASE_URL here for the POST/PUT request
-        const url = budget ? `${BASE_URL}/dashboard/budget/${budget.budget_id}` : `${BASE_URL}/dashboard/budget`;
+        const url = budget ? `http://localhost:5000/api/dashboard/budget/${budget.budget_id}` : "http://localhost:5000/api/dashboard/budget";
         const method = budget ? "PUT" : "POST";
 
         try {
@@ -100,18 +83,10 @@ export default function BudgetModal({ isOpen, onClose, onSuccess, budget }) {
     };
 
     const handleDelete = async () => {
-        if (!BASE_URL) {
-            alert("API Configuration Error: BASE_URL is not set.");
-            return;
-        }
         if(!window.confirm("Delete this budget?")) return;
-
         const token = localStorage.getItem("token");
-        // ✅ Use BASE_URL here for the DELETE request
-        await fetch(`${BASE_URL}/dashboard/budget/${budget.budget_id}`, { method: "DELETE", headers: { Authorization: token } });
-
-        onSuccess();
-        onClose();
+        await fetch(`http://localhost:5000/api/dashboard/budget/${budget.budget_id}`, { method: "DELETE", headers: { Authorization: token } });
+        onSuccess(); onClose();
     };
 
     if (!isOpen) return null;
