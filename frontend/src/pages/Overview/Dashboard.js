@@ -12,13 +12,14 @@ import {
 const BASE_URL = process.env.REACT_APP_API_URL;
 
 // 🟢 NEW: Define internal paths for routing
+// ADDED SLASHES (/) TO MAKE PATHS ABSOLUTE
 const APP_ROUTES = {
     HOME: '/',
-    WALLETS: 'wallets',
-    BUDGETS_GOALS: 'budgets',
-    AI_ADVISOR: 'advisor',
-    ANALYTICS: 'analytics',
-    SETTINGS: 'settings',
+    WALLETS: '/wallets',        // Changed from 'wallets' to '/wallets'
+    BUDGETS_GOALS: '/budgets',  // Changed from 'budgets' to '/budgets'
+    AI_ADVISOR: '/advisor',     // Changed from 'advisor' to '/advisor'
+    ANALYTICS: '/analytics',    // Changed from 'analytics' to '/analytics'
+    SETTINGS: '/settings',      // Changed from 'settings' to '/settings'
 };
 
 // =================================================================
