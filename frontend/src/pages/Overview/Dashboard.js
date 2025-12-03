@@ -177,7 +177,7 @@ const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh 
                     <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
                 </div>
 
-                {/* 🟢 AI Insight Card */}
+                {/* AI Insight Card */}
                 <Card className="md:col-span-2 border-l-4 border-l-blue-500 flex flex-col justify-center relative">
                     <button onClick={generateInsight} disabled={aiLoading} className="absolute top-4 right-4 text-gray-400 hover:text-blue-600 transition disabled:opacity-50" title="Refresh Insight">
                         {aiLoading ? <Loader2 size={18} className="animate-spin" /> : <RotateCw size={18} />}
@@ -295,7 +295,6 @@ export default function Dashboard() {
     const notifRef = useRef(null);
     const triggerRefresh = () => setRefreshTrigger(prev => prev + 1);
 
-    // 🟢 NEW STATE for AI-Generated Notifications
     const [aiNotifications, setAiNotifications] = useState(() => {
         const storedNotifs = localStorage.getItem('aiNotifications');
         return storedNotifs ? JSON.parse(storedNotifs) : [];
@@ -391,17 +390,23 @@ export default function Dashboard() {
         setIsMobileMenuOpen(false);
     }, [currentPage]);
 
+    // Close mobile menu when page changes
+    const handleNavClick = (page) => {
+        setCurrentPage(page);
+        setIsMobileMenuOpen(false);
+    };
+
     const unreadCount = aiNotifications.filter(n => n.isNew).length;
 
     const renderPage = () => {
         switch (currentPage) {
-            case 'dashboard': return <DashboardHome setCurrentPage={setCurrentPage} user={user} refreshTrigger={refreshTrigger} onTriggerRefresh={triggerRefresh} />;
+            case 'dashboard': return <DashboardHome setCurrentPage={handleNavClick} user={user} refreshTrigger={refreshTrigger} onTriggerRefresh={triggerRefresh} />;
             case 'wallets': return <Wallets onAddTransaction={() => setIsTransactionModalOpen(true)} onAddWallet={() => setIsWalletModalOpen(true)} refreshTrigger={refreshTrigger} onTriggerRefresh={triggerRefresh} />;
             case 'budgets': return <BudgetGoals setCurrentPage={setCurrentPage} />;
             case 'advisor': return <AIAdvisor />;
             case 'analytics': return <Analytics />;
             case 'settings': return <Settings />;
-            default: return <DashboardHome setCurrentPage={setCurrentPage} user={user} refreshTrigger={refreshTrigger} onTriggerRefresh={triggerRefresh} />;
+            default: return <DashboardHome setCurrentPage={handleNavClick} user={user} refreshTrigger={refreshTrigger} onTriggerRefresh={triggerRefresh} />;
         }
     };
 

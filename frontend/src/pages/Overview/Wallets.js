@@ -39,7 +39,6 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
     // 🟢 Function to call AI for Wallet Summary
-    // Note: We use a wrapper function for the button click, but the useEffect will call generateWalletInsight directly
     const generateWalletInsight = async (walletsData, netWorth) => {
         setAiLoading(true);
         // Clear previous insight while fetching
@@ -47,7 +46,7 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
 
         // Use the current state values if explicit data isn't passed (for manual refresh click)
         const currentWallets = walletsData || wallets;
-        const currentNetWorth = netWorth || 0; // Net worth isn't easily accessible here, but let's assume 0 if not fetched yet.
+        const currentNetWorth = netWorth || 0;
 
         try {
             const token = localStorage.getItem("token");
@@ -57,10 +56,11 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
                 name: w.name,
                 type: w.type,
                 balance: w.balance,
-                available: w.available_balance // Use available_balance if present
+                available: w.available_balance
             }));
 
-            const message = `Analyze this list of user wallets (Total Net Worth: $${currentNetWorth.toLocaleString()}) and provide a 1-sentence assessment of their current liquidity or asset diversification. Wallets: ${JSON.stringify(walletSummary)}`;
+            // Changed $ to ₱ in the AI prompt so it understands the currency context
+            const message = `Analyze this list of user wallets (Total Net Worth: ₱${currentNetWorth.toLocaleString()}) and provide a 1-sentence assessment of their current liquidity or asset diversification. Wallets: ${JSON.stringify(walletSummary)}`;
 
             const res = await fetch("http://localhost:5000/api/ai/chat", {
                 method: "POST",
@@ -94,9 +94,6 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
                 if (res.ok) {
                     setWallets(data.wallets);
                     setTransactions(data.recentTransactions);
-
-                    // 🔴 REMOVED: generateWalletInsight(data.wallets, data.netWorth);
-                    // The AI insight is no longer triggered by data refresh.
                 }
             } catch (err) { console.error(err); }
             finally { setLoading(false); }
@@ -106,9 +103,7 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
 
     // 2. Initial AI Insight Load (Runs only once on mount IF localStorage is empty)
     useEffect(() => {
-        // Only run if aiWalletInsight state (loaded from localStorage) is empty
         if (!aiWalletInsight) {
-            // Need a quick local data fetch to generate the first insight accurately
             const fetchInitialDataAndGenerateInsight = async () => {
                 try {
                     const token = localStorage.getItem("token");
@@ -123,11 +118,9 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
             }
             fetchInitialDataAndGenerateInsight();
         }
-    }, []); // Empty dependency array ensures it runs only once
+    }, []);
 
     const handleManualRefresh = () => {
-        // Manually trigger data fetch and then insight generation using current data
-        // We'll call generateInsight with the current state data
         generateWalletInsight(wallets);
     }
 
@@ -181,7 +174,6 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
                             </p>
                         )}
                         <button
-                            // 💡 Use the new manual handler
                             onClick={handleManualRefresh}
                             disabled={aiLoading}
                             className="mt-3 text-xs font-medium text-purple-600 dark:text-purple-400 hover:underline"
@@ -206,7 +198,8 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
                             <div>
                                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 capitalize">{wallet.type}</p>
                                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">{wallet.name}</h3>
-                                <p className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">${Number(wallet.balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                                {/* 🟢 Replaced $ with ₱ */}
+                                <p className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">₱{Number(wallet.balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
                             </div>
                         </div>
                     );
@@ -241,7 +234,8 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
                                             <div className={`p-3 rounded-full ${isIncome ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'}`}>{isIncome ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}</div>
                                             <div><p className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{tx.name}</p><div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mt-0.5"><span className="font-medium">{tx.category_name || 'Uncategorized'}</span><span className="mx-1.5">•</span><span>{new Date(tx.transaction_date).toLocaleDateString()}</span><span className="mx-1.5">•</span><span>{tx.wallet_name}</span></div></div>
                                         </div>
-                                        <div className={`text-right font-bold text-base ${isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{isIncome ? '+' : '-'}${Math.abs(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                                        {/* 🟢 Replaced $ with ₱ */}
+                                        <div className={`text-right font-bold text-base ${isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{isIncome ? '+' : '-'}₱{Math.abs(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
                                     </div>
                                 );
                             })}
@@ -254,7 +248,6 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
             <TransactionDetailsModal isOpen={isTxModalOpen} onClose={() => setIsTxModalOpen(false)} transaction={selectedTx} onSuccess={onTriggerRefresh} />
             <WalletDetailsModal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} walletId={detailWalletId} />
 
-            {/* 🟢 Transfer Modal */}
             <TransferModal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} onSuccess={onTriggerRefresh} />
         </div>
     );
