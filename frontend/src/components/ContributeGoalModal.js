@@ -33,7 +33,6 @@ export default function ContributeGoalModal({ isOpen, onClose, goal, onSuccess }
             const fetchWallets = async () => {
                 const token = localStorage.getItem("token");
                 try {
-                    // ✅ Use BASE_URL here for data fetching
                     const res = await fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } });
                     if (res.ok) {
                         const data = await res.json();
@@ -84,11 +83,16 @@ export default function ContributeGoalModal({ isOpen, onClose, goal, onSuccess }
 
         try {
             const token = localStorage.getItem("token");
-            // ✅ Use BASE_URL here for the POST request
+
+            // 🟢 FIX: Send 'is_contribution' boolean to satisfy database constraint
             const res = await fetch(`${BASE_URL}/dashboard/goal/${goal.goal_id}/contribute`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: token },
-                body: JSON.stringify({ wallet_id: walletId, amount: finalAmount })
+                body: JSON.stringify({
+                    wallet_id: walletId,
+                    amount: finalAmount,
+                    is_contribution: mode === 'add' // ✅ Added this line
+                })
             });
 
             const data = await res.json();
@@ -96,7 +100,6 @@ export default function ContributeGoalModal({ isOpen, onClose, goal, onSuccess }
             if (res.ok) {
                 if (onSuccess) onSuccess();
                 onClose();
-                // Using alert() here as per the original code's style
                 setTimeout(() => alert(mode === 'add' ? "Funds Allocated Successfully!" : "Funds Removed Successfully!"), 300);
             } else {
                 setError(data.error || "Failed to update funds.");

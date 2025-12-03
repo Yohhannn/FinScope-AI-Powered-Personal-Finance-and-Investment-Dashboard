@@ -145,7 +145,7 @@ export default function BudgetModal({ isOpen, onClose, onSuccess, budget }) {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Monthly Limit ($)</label>
+                        <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Monthly Limit (₱)</label>
                         <input type="number" value={form.limit_amount} onChange={e => setForm({...form, limit_amount: e.target.value})} className="w-full p-2.5 rounded-xl bg-gray-50 dark:bg-gray-700 dark:text-white border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none" required />
                     </div>
 

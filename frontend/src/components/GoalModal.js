@@ -61,7 +61,7 @@ export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
         if (!goal && initialSave > 0 && form.wallet_id) {
             const available = getDisplayBalance(form.wallet_id);
             if (initialSave > available) {
-                setError(`Insufficient available funds. You only have $${available.toLocaleString()} available.`);
+                setError(`Insufficient available funds. You only have ₱${available.toLocaleString()} available.`);
                 setLoading(false);
                 return;
             }
@@ -137,7 +137,7 @@ export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
                             <option value="">Select a Wallet</option>
                             {wallets.map(w => (
                                 <option key={w.wallet_id} value={w.wallet_id}>
-                                    {w.name} (${parseFloat(w.available_balance ?? w.balance).toLocaleString()} Avail)
+                                    {w.name} (₱{parseFloat(w.available_balance ?? w.balance).toLocaleString()} Avail)
                                 </option>
                             ))}
                         </select>
@@ -146,14 +146,14 @@ export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Target ($)</label>
+                            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Target (₱)</label>
                             <input type="number" value={form.target_amount} onChange={e => setForm({...form, target_amount: e.target.value})} className="w-full p-2.5 rounded-xl bg-gray-50 dark:bg-gray-700 dark:text-white border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none" required placeholder="0.00" />
                         </div>
 
                         {/* 🟢 INITIAL SAVE: Disabled when Editing */}
                         <div className="relative">
                             <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
-                                {goal ? "Current Balance" : "Initial Save ($)"}
+                                {goal ? "Current Balance" : "Initial Save (₱)"}
                             </label>
                             <input
                                 type="number"
