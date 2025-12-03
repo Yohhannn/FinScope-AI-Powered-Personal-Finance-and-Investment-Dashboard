@@ -26,11 +26,11 @@ const APP_ROUTES = {
 // REMOVED: Placeholder component definitions (e.g., const Wallets = ...)
 // If you do not have these files, this WILL crash.
 // Example Imports (Adjust paths as needed for your project structure):
-// import Wallets from '../Wallets/Wallets';
-// import BudgetGoals from '../Budgets/BudgetGoals';
-// import AIAdvisor from '../AIAdvisor/AIAdvisor';
+import Wallets from './Wallets';
+import BudgetGoals from './Budget-Goals';
+import AIAdvisor from './AIAdvisor';
 import Analytics from './Analytics';
-// import Settings from '../Settings/Settings';
+import Settings from './Settings';
 // =================================================================
 
 // --- DUMMY PLACEHOLDERS (REPLACE WITH REAL IMPORTS IN YOUR PROJECT) ---
@@ -45,10 +45,10 @@ const Wallets = ({ onAddTransaction, onAddWallet, refreshTrigger, onTriggerRefre
         <button onClick={onAddWallet} className="text-blue-500 hover:underline">Add Wallet</button>
     </div>
 );
-const BudgetGoals = () => <div className="text-center py-24 text-gray-500 dark:text-gray-400">Budget/Goals Component Loaded Successfully</div>;
-const AIAdvisor = () => <div className="text-center py-24 text-gray-500 dark:text-gray-400">AI Advisor Component Loaded Successfully</div>;
+//const BudgetGoals = () => <div className="text-center py-24 text-gray-500 dark:text-gray-400">Budget/Goals Component Loaded Successfully</div>;
+//const AIAdvisor = () => <div className="text-center py-24 text-gray-500 dark:text-gray-400">AI Advisor Component Loaded Successfully</div>;
 //const Analytics = () => <div className="text-center py-24 text-gray-500 dark:text-gray-400">Analytics Component Loaded Successfully</div>;
-const Settings = () => <div className="text-center py-24 text-gray-500 dark:text-gray-400">Settings Component Loaded Successfully</div>;
+//const Settings = () => <div className="text-center py-24 text-gray-500 dark:text-gray-400">Settings Component Loaded Successfully</div>;
 // --- END DUMMY PLACEHOLDERS ---
 
 // --- UI Component Imports (Mocks) ---
