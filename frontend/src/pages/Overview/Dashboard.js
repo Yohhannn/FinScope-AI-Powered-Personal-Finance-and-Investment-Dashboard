@@ -38,13 +38,13 @@ import Settings from './Settings';
 // Keeping these as dummy definitions to make this file runnable,
 // but in your project, they should be imports from separate files.
 // *******************************************************************
-const Wallets = ({ onAddTransaction, onAddWallet, refreshTrigger, onTriggerRefresh }) => (
-    <div className="text-center py-24 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl m-4">
-        <p className="mb-4">Wallets Component Loaded Successfully</p>
-        <button onClick={onAddTransaction} className="text-blue-500 hover:underline mr-4">Add Transaction</button>
-        <button onClick={onAddWallet} className="text-blue-500 hover:underline">Add Wallet</button>
-    </div>
-);
+// const Wallets = ({ onAddTransaction, onAddWallet, refreshTrigger, onTriggerRefresh }) => (
+//     <div className="text-center py-24 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl m-4">
+//         <p className="mb-4">Wallets Component Loaded Successfully</p>
+//         <button onClick={onAddTransaction} className="text-blue-500 hover:underline mr-4">Add Transaction</button>
+//         <button onClick={onAddWallet} className="text-blue-500 hover:underline">Add Wallet</button>
+//     </div>
+// );
 //const BudgetGoals = () => <div className="text-center py-24 text-gray-500 dark:text-gray-400">Budget/Goals Component Loaded Successfully</div>;
 //const AIAdvisor = () => <div className="text-center py-24 text-gray-500 dark:text-gray-400">AI Advisor Component Loaded Successfully</div>;
 //const Analytics = () => <div className="text-center py-24 text-gray-500 dark:text-gray-400">Analytics Component Loaded Successfully</div>;
