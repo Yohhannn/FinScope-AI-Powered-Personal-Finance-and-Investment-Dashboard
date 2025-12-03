@@ -2,9 +2,13 @@ import AuthLayout from "../components/AuthLayout";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+// 🚀 Use the environment variable for the base API URL
+const BASE_URL = process.env.REACT_APP_API_URL;
+
 export default function Register() {
     const navigate = useNavigate();
     const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false); // New: Loading state
     const [form, setForm] = useState({
         name: "",
         email: "",
@@ -18,20 +22,30 @@ export default function Register() {
         e.preventDefault();
         setError("");
 
-        // 1. Validation: Check passwords match
-        if (form.password !== form.confirm) {
-            setError("Passwords do not match");
+        // ⚠️ Check for API URL before proceeding
+        if (!BASE_URL) {
+            setError("Configuration error: API URL is missing.");
+            console.error("REACT_APP_API_URL is not defined.");
             return;
         }
 
+        // 1. Validation: Check passwords match
+        if (form.password !== form.confirm) {
+            setError("Passwords do not match.");
+            return;
+        }
+
+        setLoading(true); // Start loading
+
         try {
-            // 🟢 UPDATED URL to match MVC structure
-            const response = await fetch("http://localhost:5000/api/auth/register", {
+            // ✅ Use the environment variable here
+            const response = await fetch(`${BASE_URL}/auth/register`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     name: form.name,
                     email: form.email,
+                    // Only send 'password' to the backend, not 'confirm'
                     password: form.password,
                 }),
             });
@@ -40,15 +54,18 @@ export default function Register() {
 
             if (response.ok) {
                 // Success: Redirect to Login so they can sign in
-                alert("Account created! Please log in.");
+                alert("Account created successfully! Please log in.");
                 navigate("/login");
             } else {
                 // Fail: Show error from backend (e.g., "User already exists")
-                setError(data.error || "Registration failed");
+                setError(data.error || "Registration failed. Please check your details.");
             }
         } catch (err) {
             console.error("Connection Error:", err);
-            setError("Server is not responding. Please try again later.");
+            // This error is usually a network issue (like CORS or server being down)
+            setError("Cannot connect to the server. Please try again later.");
+        } finally {
+            setLoading(false); // Stop loading regardless of success/fail
         }
     };
 
@@ -74,6 +91,7 @@ export default function Register() {
                             className="w-full p-3 rounded-lg bg-gray-700 focus:ring-2 ring-blue-500 outline-none"
                             value={form.name}
                             onChange={(e) => update("name", e.target.value)}
+                            disabled={loading} // Disabled while loading
                         />
                     </div>
 
@@ -85,6 +103,7 @@ export default function Register() {
                             className="w-full p-3 rounded-lg bg-gray-700 focus:ring-2 ring-blue-500 outline-none"
                             value={form.email}
                             onChange={(e) => update("email", e.target.value)}
+                            disabled={loading} // Disabled while loading
                         />
                     </div>
 
@@ -96,6 +115,7 @@ export default function Register() {
                             className="w-full p-3 rounded-lg bg-gray-700 focus:ring-2 ring-blue-500 outline-none"
                             value={form.password}
                             onChange={(e) => update("password", e.target.value)}
+                            disabled={loading} // Disabled while loading
                         />
                     </div>
 
@@ -107,14 +127,16 @@ export default function Register() {
                             className="w-full p-3 rounded-lg bg-gray-700 focus:ring-2 ring-blue-500 outline-none"
                             value={form.confirm}
                             onChange={(e) => update("confirm", e.target.value)}
+                            disabled={loading} // Disabled while loading
                         />
                     </div>
 
                     <button
                         type="submit"
-                        className="w-full p-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition"
+                        className="w-full p-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition disabled:opacity-50"
+                        disabled={loading} // Added disabled state
                     >
-                        Create account →
+                        {loading ? "Creating account..." : "Create account →"}
                     </button>
                 </form>
 

@@ -2,19 +2,32 @@ import AuthLayout from "../components/AuthLayout";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+// 🚀 Use the environment variable for the base API URL
+const BASE_URL = process.env.REACT_APP_API_URL;
+
 export default function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [error, setError] = useState(""); // Stores error messages
-    const navigate = useNavigate(); // Used to redirect user
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false); // New: Loading state
+    const navigate = useNavigate();
 
     const handleLogin = async (e) => {
         e.preventDefault();
         setError(""); // Clear previous errors
+        setLoading(true); // Start loading
+
+        // ⚠️ Check if BASE_URL is defined (crucial for local testing and deployment)
+        if (!BASE_URL) {
+            setError("Configuration error: API URL is missing.");
+            setLoading(false);
+            console.error("REACT_APP_API_URL is not defined.");
+            return;
+        }
 
         try {
-            // 🟢 UPDATED URL to match MVC structure
-            const response = await fetch("http://localhost:5000/api/auth/login", {
+            // ✅ Use the environment variable here
+            const response = await fetch(`${BASE_URL}/auth/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password }),
@@ -23,18 +36,21 @@ export default function Login() {
             const data = await response.json();
 
             if (response.ok) {
-                // Success: Store token and redirect
+                // Success
                 console.log("Login Success:", data);
                 localStorage.setItem("token", data.token);
                 localStorage.setItem("user", JSON.stringify(data.user));
                 navigate("/dashboard");
             } else {
-                // Fail: Show error from backend
-                setError(data.error || "Login failed");
+                // Fail
+                setError(data.error || "Login failed due to incorrect credentials.");
             }
         } catch (err) {
             console.error("Connection Error:", err);
-            setError("Server is not responding. Please try again later.");
+            // This error is usually a network issue (like CORS or server being down)
+            setError("Cannot connect to the server. Please check your network and API URL.");
+        } finally {
+            setLoading(false); // Stop loading regardless of success/fail
         }
     };
 
@@ -61,6 +77,7 @@ export default function Login() {
                             placeholder="you@example.com"
                             onChange={(e) => setEmail(e.target.value)}
                             value={email}
+                            disabled={loading} // Disabled while loading
                         />
                     </div>
 
@@ -72,6 +89,7 @@ export default function Login() {
                             className="w-full p-3 rounded-lg bg-gray-700 focus:ring-2 ring-blue-500 outline-none"
                             onChange={(e) => setPassword(e.target.value)}
                             value={password}
+                            disabled={loading} // Disabled while loading
                         />
                     </div>
 
@@ -80,14 +98,17 @@ export default function Login() {
                             <input type="checkbox" className="accent-blue-500" />
                             Remember me
                         </label>
-                        <button type="button" className="text-blue-400 hover:underline">Forgot password?</button>
+                        <button type="button" className="text-blue-400 hover:underline" disabled={loading}>
+                            Forgot password?
+                        </button>
                     </div>
 
                     <button
                         type="submit"
-                        className="w-full p-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition"
+                        className="w-full p-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition disabled:opacity-50"
+                        disabled={loading} // Added disabled state
                     >
-                        Sign in →
+                        {loading ? "Signing in..." : "Sign in →"}
                     </button>
                 </form>
 
