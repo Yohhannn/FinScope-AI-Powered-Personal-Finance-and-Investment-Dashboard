@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 
+// 🚀 NEW: Define the base API URL from the environment variable
+const BASE_URL = process.env.REACT_APP_API_URL;
+
 export default function AddCategoryModal({ isOpen, onClose, onSuccess }) {
     const [name, setName] = useState('');
 
@@ -8,7 +11,10 @@ export default function AddCategoryModal({ isOpen, onClose, onSuccess }) {
         e.preventDefault();
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch("http://localhost:5000/api/dashboard/category", {
+
+            // 🟢 UPDATE: Use BASE_URL instead of hardcoded localhost
+            // This assumes REACT_APP_API_URL in your .env is "http://localhost:5000/api"
+            const res = await fetch(`${BASE_URL}/dashboard/category`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: token },
                 body: JSON.stringify({ name })

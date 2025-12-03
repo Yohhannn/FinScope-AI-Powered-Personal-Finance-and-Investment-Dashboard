@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, AlertTriangle, Wallet, Lock } from 'lucide-react';
+import { X, AlertTriangle, Lock } from 'lucide-react';
 
 // 🚀 NEW: Define the base API URL from the environment variable
 const BASE_URL = process.env.REACT_APP_API_URL;
@@ -49,7 +49,7 @@ export default function ContributeGoalModal({ isOpen, onClose, goal, onSuccess }
             };
             fetchWallets();
         }
-    }, [isOpen, goal, BASE_URL]); // Dependency added for BASE_URL
+    }, [isOpen, goal]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();

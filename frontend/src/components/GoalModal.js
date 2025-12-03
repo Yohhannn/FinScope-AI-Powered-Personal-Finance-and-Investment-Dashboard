@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, AlertTriangle, Lock } from 'lucide-react';
 
+// 🚀 NEW: Define the base API URL from the environment variable
+const BASE_URL = process.env.REACT_APP_API_URL;
+
 export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
     const [form, setForm] = useState({ name: '', target_amount: '', current_amount: '0', wallet_id: '' });
     const [wallets, setWallets] = useState([]);
@@ -13,7 +16,8 @@ export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
             const fetchWallets = async () => {
                 const token = localStorage.getItem("token");
                 try {
-                    const res = await fetch("http://localhost:5000/api/dashboard", { headers: { Authorization: token } });
+                    // 🟢 UPDATED: Using BASE_URL
+                    const res = await fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } });
                     if(res.ok) {
                         const data = await res.json();
                         setWallets(data.wallets || []);
@@ -64,7 +68,9 @@ export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
         }
 
         const token = localStorage.getItem("token");
-        const url = goal ? `http://localhost:5000/api/dashboard/goal/${goal.goal_id}` : "http://localhost:5000/api/dashboard/goal";
+
+        // 🟢 UPDATED: Using BASE_URL
+        const url = goal ? `${BASE_URL}/dashboard/goal/${goal.goal_id}` : `${BASE_URL}/dashboard/goal`;
         const method = goal ? "PUT" : "POST";
 
         try {
@@ -93,7 +99,9 @@ export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
     const handleDelete = async () => {
         if(!window.confirm("Delete this goal?")) return;
         const token = localStorage.getItem("token");
-        await fetch(`http://localhost:5000/api/dashboard/goal/${goal.goal_id}`, { method: "DELETE", headers: { Authorization: token } });
+
+        // 🟢 UPDATED: Using BASE_URL
+        await fetch(`${BASE_URL}/dashboard/goal/${goal.goal_id}`, { method: "DELETE", headers: { Authorization: token } });
         onSuccess(); onClose();
     };
 

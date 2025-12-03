@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
+// 🚀 NEW: Define the base API URL from the environment variable
+const BASE_URL = process.env.REACT_APP_API_URL;
+
 const Modal = ({ isOpen, onClose, title, children }) => {
     if (!isOpen) return null;
     return (
@@ -37,11 +40,17 @@ export default function AddTransactionModal({ isOpen, onClose, onSuccess }) {
         if (isOpen) {
             const loadData = async () => {
                 const token = localStorage.getItem("token");
+                if (!BASE_URL) {
+                    console.error("API URL missing");
+                    return;
+                }
+
                 try {
+                    // 🟢 UPDATED: Using BASE_URL
                     const [wRes, cRes, bRes] = await Promise.all([
-                        fetch("http://localhost:5000/api/dashboard", { headers: { Authorization: token } }),
-                        fetch("http://localhost:5000/api/dashboard/categories", { headers: { Authorization: token } }),
-                        fetch("http://localhost:5000/api/dashboard/budgets", { headers: { Authorization: token } })
+                        fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } }),
+                        fetch(`${BASE_URL}/dashboard/categories`, { headers: { Authorization: token } }),
+                        fetch(`${BASE_URL}/dashboard/budgets`, { headers: { Authorization: token } })
                     ]);
 
                     if (wRes.ok) {
@@ -70,7 +79,9 @@ export default function AddTransactionModal({ isOpen, onClose, onSuccess }) {
         e.preventDefault();
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch("http://localhost:5000/api/dashboard/transaction", {
+
+            // 🟢 UPDATED: Using BASE_URL
+            const response = await fetch(`${BASE_URL}/dashboard/transaction`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": token },
                 body: JSON.stringify({

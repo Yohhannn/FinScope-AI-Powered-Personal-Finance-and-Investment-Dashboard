@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, Plus, AlertTriangle } from 'lucide-react';
 
+// 🚀 NEW: Define the base API URL from the environment variable
+const BASE_URL = process.env.REACT_APP_API_URL;
+
 export default function ManageCategoriesModal({ isOpen, onClose }) {
     const [categories, setCategories] = useState([]);
     const [newName, setNewName] = useState('');
@@ -10,7 +13,9 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
     const fetchCats = async () => {
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch("http://localhost:5000/api/dashboard/categories", {
+
+            // 🟢 UPDATED: Using BASE_URL
+            const res = await fetch(`${BASE_URL}/dashboard/categories`, {
                 headers: { Authorization: token }
             });
             if(res.ok) setCategories(await res.json());
@@ -31,7 +36,9 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
         if(!newName) return;
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch("http://localhost:5000/api/dashboard/category", {
+
+            // 🟢 UPDATED: Using BASE_URL
+            const res = await fetch(`${BASE_URL}/dashboard/category`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: token },
                 body: JSON.stringify({ name: newName })
@@ -53,7 +60,9 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
 
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch(`http://localhost:5000/api/dashboard/category/${id}`, {
+
+            // 🟢 UPDATED: Using BASE_URL
+            const res = await fetch(`${BASE_URL}/dashboard/category/${id}`, {
                 method: "DELETE",
                 headers: { Authorization: token }
             });

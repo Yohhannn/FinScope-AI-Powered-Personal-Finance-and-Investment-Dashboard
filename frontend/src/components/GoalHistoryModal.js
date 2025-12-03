@@ -1,6 +1,8 @@
-// components/GoalHistoryModal.js
 import React, { useEffect, useState } from 'react';
 import { X, Trash2, Calendar, Wallet, ArrowRight } from 'lucide-react';
+
+// 🚀 NEW: Define the base API URL from the environment variable
+const BASE_URL = process.env.REACT_APP_API_URL;
 
 export default function GoalHistoryModal({ isOpen, onClose, goal, onRefresh }) {
     const [transactions, setTransactions] = useState([]);
@@ -16,7 +18,9 @@ export default function GoalHistoryModal({ isOpen, onClose, goal, onRefresh }) {
         try {
             setLoading(true);
             const token = localStorage.getItem("token");
-            const res = await fetch(`http://localhost:5000/api/dashboard/goal/${goal.goal_id}/transactions`, {
+
+            // 🟢 UPDATED: Using BASE_URL
+            const res = await fetch(`${BASE_URL}/dashboard/goal/${goal.goal_id}/transactions`, {
                 headers: { Authorization: token }
             });
             const data = await res.json();
@@ -33,7 +37,9 @@ export default function GoalHistoryModal({ isOpen, onClose, goal, onRefresh }) {
 
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch(`http://localhost:5000/api/dashboard/goal/transaction/${txId}`, {
+
+            // 🟢 UPDATED: Using BASE_URL
+            const res = await fetch(`${BASE_URL}/dashboard/goal/transaction/${txId}`, {
                 method: 'DELETE',
                 headers: { Authorization: token }
             });
