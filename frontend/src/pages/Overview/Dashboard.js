@@ -29,7 +29,7 @@ const APP_ROUTES = {
 // import Wallets from '../Wallets/Wallets';
 // import BudgetGoals from '../Budgets/BudgetGoals';
 // import AIAdvisor from '../AIAdvisor/AIAdvisor';
-// import Analytics from '../Analytics/Analytics';
+import Analytics from './Analytics';
 // import Settings from '../Settings/Settings';
 // =================================================================
 
@@ -47,7 +47,7 @@ const Wallets = ({ onAddTransaction, onAddWallet, refreshTrigger, onTriggerRefre
 );
 const BudgetGoals = () => <div className="text-center py-24 text-gray-500 dark:text-gray-400">Budget/Goals Component Loaded Successfully</div>;
 const AIAdvisor = () => <div className="text-center py-24 text-gray-500 dark:text-gray-400">AI Advisor Component Loaded Successfully</div>;
-const Analytics = () => <div className="text-center py-24 text-gray-500 dark:text-gray-400">Analytics Component Loaded Successfully</div>;
+//const Analytics = () => <div className="text-center py-24 text-gray-500 dark:text-gray-400">Analytics Component Loaded Successfully</div>;
 const Settings = () => <div className="text-center py-24 text-gray-500 dark:text-gray-400">Settings Component Loaded Successfully</div>;
 // --- END DUMMY PLACEHOLDERS ---
 
