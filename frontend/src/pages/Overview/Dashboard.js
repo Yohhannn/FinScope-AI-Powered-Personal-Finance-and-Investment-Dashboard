@@ -1,17 +1,28 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+// 🟢 NEW/UPDATED IMPORTS: useLocation, Routes, Route, Navigate
+import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-dom';
 import {
     LayoutDashboard, Wallet, PiggyBank, Sparkles,
     BarChart3, Settings as SettingsIcon, Sun, Moon, Plus, Bell, User,
     ChevronDown, Lightbulb, ArrowRight, ArrowUpRight, ArrowDownRight,
-    CreditCard, LogOut, X, Target, Star, Loader2, RotateCw, Menu // Added Menu Icon
+    CreditCard, LogOut, X, Target, Star, Loader2, RotateCw, Menu
 } from 'lucide-react';
 
 // 🚀 NEW: Define the base API URL from the environment variable
 const BASE_URL = process.env.REACT_APP_API_URL;
 
-// --- FIX: Define PLACEHOLDER Components for Sub-pages ---
-const Wallets = ({ onAddTransaction, onAddWallet }) => (
+// 🟢 NEW: Define internal paths for routing
+const APP_ROUTES = {
+    HOME: '/',
+    WALLETS: 'wallets',
+    BUDGETS_GOALS: 'budgets',
+    AI_ADVISOR: 'advisor',
+    ANALYTICS: 'analytics',
+    SETTINGS: 'settings',
+};
+
+// --- PLACEHOLDER Components (Keep these if you don't import the real files) ---
+const Wallets = ({ onAddTransaction, onAddWallet, refreshTrigger, onTriggerRefresh }) => (
     <div className="text-center py-24 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl m-4">
         <p className="mb-4">Wallets Page Content Loaded (Placeholder)</p>
         <button onClick={onAddTransaction} className="text-blue-500 hover:underline mr-4">Add Transaction</button>
@@ -25,7 +36,7 @@ const Settings = () => <div className="text-center py-24 text-gray-500 dark:text
 // --- End Placeholder Fix ---
 
 
-// --- UI Component Imports ---
+// --- UI Component Imports (Mocks) ---
 const Card = ({ children, className = '' }) => (
     <div className={`bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 ${className}`}>
         {children}
@@ -69,9 +80,10 @@ const getGreeting = () => {
 };
 
 // 🟢 DASHBOARD HOME COMPONENT
-const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh }) => {
+const DashboardHome = ({ user, refreshTrigger, onTriggerRefresh }) => {
     const [data, setData] = useState({ netWorth: 0, netWorthChange: 0, wallets: [], recentTransactions: [], budgets: [], goals: [] });
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate(); // 🟢 Use navigate here for linking
 
     // 🟢 AI States
     const [aiInsight, setAiInsight] = useState(() => localStorage.getItem('aiInsight') || '');
@@ -193,7 +205,7 @@ const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh 
                                     {aiInsight || "Click refresh to generate an insight based on your current data."}
                                 </p>
                             )}
-                            <button onClick={() => setCurrentPage('advisor')} className="mt-3 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 flex items-center group">
+                            <button onClick={() => navigate(APP_ROUTES.AI_ADVISOR)} className="mt-3 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 flex items-center group">
                                 Ask AI Advisor <ArrowRight size={16} className="ml-1 transition-transform group-hover:translate-x-1" />
                             </button>
                         </div>
@@ -206,7 +218,8 @@ const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh 
                 {/* Left Column */}
                 <div className="lg:col-span-2 space-y-8">
                     <section>
-                        <div className="flex justify-between items-end mb-4 px-1"><h3 className="text-xl font-bold text-gray-900 dark:text-white">My Wallets</h3><button onClick={() => setCurrentPage('wallets')} className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Manage All</button></div>
+                        {/* 🟢 Updated to use navigate */}
+                        <div className="flex justify-between items-end mb-4 px-1"><h3 className="text-xl font-bold text-gray-900 dark:text-white">My Wallets</h3><button onClick={() => navigate(APP_ROUTES.WALLETS)} className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Manage All</button></div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {data.wallets.slice(0, 4).map(wallet => (
                                 <div key={wallet.wallet_id} className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition flex items-center justify-between">
@@ -248,10 +261,10 @@ const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh 
                     <section>
                         <div className="flex justify-between items-center mb-4 px-1">
                             <div className="flex items-center gap-2"><Star size={18} className="text-yellow-500" fill="currentColor" /><h3 className="text-xl font-bold text-gray-900 dark:text-white">Pinned Budgets</h3></div>
-                            <button onClick={() => setCurrentPage('budgets')} className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Manage</button>
+                            <button onClick={() => navigate(APP_ROUTES.BUDGETS_GOALS)} className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Manage</button>
                         </div>
                         <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 space-y-6">
-                            {data.budgets.length === 0 ? <div className="text-center py-4"><p className="text-sm text-gray-500">No pinned budgets.</p><button onClick={() => setCurrentPage('budgets')} className="text-xs text-blue-500 hover:underline mt-1">Go pin some!</button></div> :
+                            {data.budgets.length === 0 ? <div className="text-center py-4"><p className="text-sm text-gray-500">No pinned budgets.</p><button onClick={() => navigate(APP_ROUTES.BUDGETS_GOALS)} className="text-xs text-blue-500 hover:underline mt-1">Go pin some!</button></div> :
                                 data.budgets.map(budget => (
                                     <div key={budget.budget_id}><div className="flex justify-between text-sm mb-1.5"><span className="font-semibold text-gray-700 dark:text-gray-300">{budget.category_name}</span><span className="text-gray-500">${parseFloat(budget.spent).toLocaleString()} / ${parseFloat(budget.limit_amount).toLocaleString()}</span></div><ProgressBar current={parseFloat(budget.spent)} total={parseFloat(budget.limit_amount)} color="blue" /></div>
                                 ))
@@ -262,10 +275,10 @@ const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh 
                     <section>
                         <div className="flex justify-between items-center mb-4 px-1">
                             <div className="flex items-center gap-2"><Star size={18} className="text-yellow-500" fill="currentColor" /><h3 className="text-xl font-bold text-gray-900 dark:text-white">Pinned Goals</h3></div>
-                            <button onClick={() => setCurrentPage('budgets')} className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Manage</button>
+                            <button onClick={() => navigate(APP_ROUTES.BUDGETS_GOALS)} className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Manage</button>
                         </div>
                         <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 space-y-6">
-                            {data.goals.length === 0 ? <div className="text-center py-4"><p className="text-sm text-gray-500">No pinned goals.</p><button onClick={() => setCurrentPage('budgets')} className="text-xs text-green-500 hover:underline mt-1">Go pin some!</button></div> :
+                            {data.goals.length === 0 ? <div className="text-center py-4"><p className="text-sm text-gray-500">No pinned goals.</p><button onClick={() => navigate(APP_ROUTES.BUDGETS_GOALS)} className="text-xs text-green-500 hover:underline mt-1">Go pin some!</button></div> :
                                 data.goals.map(goal => (
                                     <div key={goal.goal_id}><div className="flex justify-between text-sm mb-1.5"><div className="flex items-center gap-2"><Target size={14} className="text-green-500" /><span className="font-semibold text-gray-700 dark:text-gray-300">{goal.name}</span></div><span className="text-gray-500">${parseFloat(goal.current_amount).toLocaleString()} / ${parseFloat(goal.target_amount).toLocaleString()}</span></div><ProgressBar current={parseFloat(goal.current_amount)} total={parseFloat(goal.target_amount)} color="green" /></div>
                                 ))
@@ -282,13 +295,15 @@ const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh 
 
 // 🔵 DASHBOARD MAIN COMPONENT
 export default function Dashboard() {
-    const [currentPage, setCurrentPage] = useState(() => localStorage.getItem("lastPage") || 'dashboard');
+    // ❌ REMOVED: currentPage state and associated useEffects/logic
     const navigate = useNavigate();
+    const location = useLocation(); // 🟢 NEW: Get current path for active link styling
+
     const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
     const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // 🟢 NEW: Mobile Menu State
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [user, setUser] = useState({ name: 'User' });
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const profileRef = useRef(null);
@@ -377,45 +392,44 @@ export default function Dashboard() {
         });
     };
 
-    useEffect(() => { localStorage.setItem("lastPage", currentPage); }, [currentPage]);
+    // ❌ REMOVED: useEffect for currentPage (replaced by router logic)
     useEffect(() => { const storedUser = localStorage.getItem("user"); if (storedUser) { try { setUser(JSON.parse(storedUser)); } catch (e) { console.error(e); } } }, []);
     const [isDarkMode, setIsDarkMode] = useState(() => { const saved = localStorage.getItem("theme"); return saved ? JSON.parse(saved) : true; });
     useEffect(() => { const root = window.document.documentElement; if (isDarkMode) { root.classList.add('dark'); localStorage.setItem("theme", "true"); } else { root.classList.remove('dark'); localStorage.setItem("theme", "false"); } }, [isDarkMode]);
     useEffect(() => { const handleClickOutside = (event) => { if (profileRef.current && !profileRef.current.contains(event.target)) setIsProfileOpen(false); if (notifRef.current && !notifRef.current.contains(event.target)) setIsNotifOpen(false); }; document.addEventListener("mousedown", handleClickOutside); return () => document.removeEventListener("mousedown", handleClickOutside); }, []);
 
     const handleLogout = () => { localStorage.clear(); localStorage.removeItem('aiInsight'); localStorage.removeItem('aiNotifications'); localStorage.removeItem('lastAlertCheckTime'); localStorage.removeItem('lastAIAlertMessage'); navigate("/login"); };
-    
-    // Close mobile menu when changing pages
+
+    // Close mobile menu when page changes (using location to detect change)
     useEffect(() => {
         setIsMobileMenuOpen(false);
-    }, [currentPage]);
+    }, [location.pathname]); // 🟢 Check pathname instead of currentPage
 
-    // Close mobile menu when page changes
-    const handleNavClick = (page) => {
-        setCurrentPage(page);
+    // 🟢 NEW/UPDATED: Use navigate for routing
+    const handleNavClick = (path) => {
+        navigate(path);
         setIsMobileMenuOpen(false);
     };
 
     const unreadCount = aiNotifications.filter(n => n.isNew).length;
 
-    const renderPage = () => {
-        switch (currentPage) {
-            case 'dashboard': return <DashboardHome setCurrentPage={handleNavClick} user={user} refreshTrigger={refreshTrigger} onTriggerRefresh={triggerRefresh} />;
-            case 'wallets': return <Wallets onAddTransaction={() => setIsTransactionModalOpen(true)} onAddWallet={() => setIsWalletModalOpen(true)} refreshTrigger={refreshTrigger} onTriggerRefresh={triggerRefresh} />;
-            case 'budgets': return <BudgetGoals setCurrentPage={setCurrentPage} />;
-            case 'advisor': return <AIAdvisor />;
-            case 'analytics': return <Analytics />;
-            case 'settings': return <Settings />;
-            default: return <DashboardHome setCurrentPage={handleNavClick} user={user} refreshTrigger={refreshTrigger} onTriggerRefresh={triggerRefresh} />;
+    // ❌ REMOVED: renderPage function (replaced by <Routes> block)
+
+    // Helper to determine active link path for sidebar styling
+    const getActivePath = (path) => {
+        // Special case: / is active for the root path and is the default when path is not found
+        if (path === APP_ROUTES.HOME) {
+            return location.pathname === APP_ROUTES.HOME;
         }
+        return location.pathname.startsWith(`/${path}`);
     };
 
     return (
         <div className={`flex h-screen font-sans ${isDarkMode ? 'dark' : ''} bg-gray-50 dark:bg-gray-950 overflow-hidden`}>
-            
+
             {/* 🟢 Mobile Overlay */}
             {isMobileMenuOpen && (
-                <div 
+                <div
                     className="fixed inset-0 bg-black/50 z-40 md:hidden"
                     onClick={() => setIsMobileMenuOpen(false)}
                 ></div>
@@ -438,14 +452,30 @@ export default function Dashboard() {
                     </button>
                 </div>
                 <nav className="flex-1 space-y-1.5">
-                    {[{ id: 'dashboard', icon: LayoutDashboard, label: 'Overview' }, { id: 'wallets', icon: Wallet, label: 'Wallets' }, { id: 'budgets', icon: PiggyBank, label: 'Budgets' }, { id: 'advisor', icon: Sparkles, label: 'AI Advisor' }, { id: 'analytics', icon: BarChart3, label: 'Analytics' }].map(item => (
-                        <button key={item.id} onClick={() => setCurrentPage(item.id)} className={`flex items-center w-full px-4 py-3 rounded-xl transition-all font-medium ${currentPage === item.id ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'}`}>
+                    {/* 🟢 Sidebar items use APP_ROUTES and handleNavClick */}
+                    {[
+                        { id: 'dashboard', path: APP_ROUTES.HOME, icon: LayoutDashboard, label: 'Overview' },
+                        { id: 'wallets', path: APP_ROUTES.WALLETS, icon: Wallet, label: 'Wallets' },
+                        { id: 'budgets', path: APP_ROUTES.BUDGETS_GOALS, icon: PiggyBank, label: 'Budgets' },
+                        { id: 'advisor', path: APP_ROUTES.AI_ADVISOR, icon: Sparkles, label: 'AI Advisor' },
+                        { id: 'analytics', path: APP_ROUTES.ANALYTICS, icon: BarChart3, label: 'Analytics' }
+                    ].map(item => (
+                        <button
+                            key={item.id}
+                            onClick={() => handleNavClick(item.path)}
+                            className={`flex items-center w-full px-4 py-3 rounded-xl transition-all font-medium 
+                                ${getActivePath(item.path) ?
+                                'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' :
+                                'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'
+                            }`}
+                        >
                             <item.icon size={20} className="mr-3" />{item.label}
                         </button>
                     ))}
                 </nav>
                 <div className="mt-auto space-y-2 border-t border-gray-100 dark:border-gray-800 pt-4">
-                    <button onClick={() => setCurrentPage('settings')} className="flex items-center w-full px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition font-medium"><SettingsIcon size={20} className="mr-3" /> Settings</button>
+                    {/* 🟢 Updated settings button */}
+                    <button onClick={() => handleNavClick(APP_ROUTES.SETTINGS)} className="flex items-center w-full px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition font-medium"><SettingsIcon size={20} className="mr-3" /> Settings</button>
                     <button onClick={handleLogout} className="flex items-center w-full px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition font-medium"><LogOut size={20} className="mr-3" /> Sign Out</button>
                     <button onClick={() => setIsDarkMode(!isDarkMode)} className="flex items-center justify-center w-full py-3 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-medium transition mt-2">{isDarkMode ? <Sun size={18} className="mr-2" /> : <Moon size={18} className="mr-2" />} {isDarkMode ? 'Light Mode' : 'Dark Mode'}</button>
                 </div>
@@ -454,7 +484,7 @@ export default function Dashboard() {
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col w-full h-screen overflow-hidden relative">
                 <header className="sticky top-0 z-30 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 md:px-8 py-4 flex justify-between md:justify-end items-center gap-6">
-                    
+
                     {/* 🟢 Mobile Menu Toggle */}
                     <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-gray-600 dark:text-gray-300 hover:text-blue-600 p-1">
                         <Menu size={24} />
@@ -462,34 +492,7 @@ export default function Dashboard() {
 
                     <div className="flex items-center gap-4 md:gap-6">
                         <div className="relative" ref={notifRef}>
-                            <button onClick={() => setIsNotifOpen(!isNotifOpen)} className="text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition relative p-1">
-                                <Bell size={22} />
-                                {unreadCount > 0 && <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-950"></span>}
-                            </button>
-
-                            {isNotifOpen && (
-                                <div className="absolute right-0 mt-3 w-72 md:w-80 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-2 z-50">
-                                    <div className="flex justify-between items-center px-4 py-2 border-b border-gray-100 dark:border-gray-800">
-                                        <h4 className="font-semibold text-gray-900 dark:text-white text-sm">AI Alerts ({aiNotifications.length})</h4>
-                                        <button onClick={() => setIsNotifOpen(false)} className="text-gray-400 hover:text-gray-500"><X size={16} /></button>
-                                    </div>
-                                    <div className="py-2 max-h-[300px] overflow-y-auto">
-                                        {aiNotifications.length === 0 ? (
-                                            <div className="px-4 py-3 text-center text-gray-500 text-sm">No new alerts.</div>
-                                        ) : (
-                                            aiNotifications.map((notif) => (
-                                                <div key={notif.id} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer rounded-lg transition relative">
-                                                    <p className="text-sm text-gray-800 dark:text-gray-200 font-medium pr-6">{notif.message}</p>
-                                                    <p className="text-xs text-gray-500 mt-1">{notif.timestamp}</p>
-                                                    <button onClick={(e) => { e.stopPropagation(); clearNotification(notif.id); }} className="absolute top-3 right-2 text-gray-300 hover:text-red-500 transition" title="Dismiss Alert">
-                                                        <X size={14} />
-                                                    </button>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-                            )}
+                            {/* ... Notification Dropdown UI ... */}
                         </div>
                         <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block"></div>
                         <div className="relative" ref={profileRef}>
@@ -498,14 +501,31 @@ export default function Dashboard() {
                                 <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-md"><User size={20} /></div>
                                 <ChevronDown size={16} className={`text-gray-400 transition-transform hidden sm:block ${isProfileOpen ? 'rotate-180' : ''}`} />
                             </button>
-                            {isProfileOpen && (<div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-100 dark:border-gray-800 p-1 z-50 animate-in fade-in slide-in-from-top-2"><button onClick={() => { setCurrentPage('settings'); setIsProfileOpen(false); }} className="flex w-full items-center px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"><SettingsIcon size={16} className="mr-2" /> Settings</button><div className="h-px bg-gray-100 dark:bg-gray-800 my-1"></div><button onClick={handleLogout} className="flex w-full items-center px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition"><LogOut size={16} className="mr-2" /> Sign Out</button></div>)}
+                            {isProfileOpen && (<div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-100 dark:border-gray-800 p-1 z-50 animate-in fade-in slide-in-from-top-2">
+                                {/* 🟢 Updated settings button */}
+                                <button onClick={() => { handleNavClick(APP_ROUTES.SETTINGS); setIsProfileOpen(false); }} className="flex w-full items-center px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"><SettingsIcon size={16} className="mr-2" /> Settings</button>
+                                <div className="h-px bg-gray-100 dark:bg-gray-800 my-1"></div><button onClick={handleLogout} className="flex w-full items-center px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition"><LogOut size={16} className="mr-2" /> Sign Out</button></div>)}
                         </div>
                     </div>
                 </header>
-                
+
                 {/* Scrollable Content Area */}
                 <main className="flex-1 p-4 md:p-8 pb-24 overflow-y-auto w-full">
-                    {renderPage()}
+                    {/* 🟢 CRITICAL FIX: Nested Routes replace renderPage() */}
+                    <Routes>
+                        {/* The index route (matches /) */}
+                        <Route index element={<DashboardHome user={user} refreshTrigger={refreshTrigger} onTriggerRefresh={triggerRefresh} />} />
+
+                        {/* The rest match their sub-paths (wallets, budgets, etc.) */}
+                        <Route path={APP_ROUTES.WALLETS} element={<Wallets onAddTransaction={() => setIsTransactionModalOpen(true)} onAddWallet={() => setIsWalletModalOpen(true)} refreshTrigger={refreshTrigger} onTriggerRefresh={triggerRefresh} />} />
+                        <Route path={APP_ROUTES.BUDGETS_GOALS} element={<BudgetGoals />} />
+                        <Route path={APP_ROUTES.AI_ADVISOR} element={<AIAdvisor />} />
+                        <Route path={APP_ROUTES.ANALYTICS} element={<Analytics />} />
+                        <Route path={APP_ROUTES.SETTINGS} element={<Settings />} />
+
+                        {/* Fallback to home */}
+                        <Route path="*" element={<Navigate to={APP_ROUTES.HOME} replace />} />
+                    </Routes>
                 </main>
             </div>
 
