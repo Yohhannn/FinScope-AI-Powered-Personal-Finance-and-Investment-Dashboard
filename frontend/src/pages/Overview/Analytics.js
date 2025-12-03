@@ -11,7 +11,7 @@ import {
 } from 'recharts';
 import { saveAs } from 'file-saver';
 import Papa from 'papaparse';
-import { Card, SectionHeader } from '../../components/DashboardUI'; // Assuming this path is correct
+import { Card, SectionHeader } from '../../components/DashboardUI'; // Ensure this path is correct
 
 // 🟢 CRITICAL: Define the base API URL from the environment variable
 const BASE_URL = process.env.REACT_APP_API_URL;
@@ -22,7 +22,6 @@ export default function Analytics() {
     const [monthlyData, setMonthlyData] = useState([]);
     const [categoryData, setCategoryData] = useState([]);
 
-    // 🟢 STATS STATE
     const [stats, setStats] = useState({
         totalIncome: 0,
         totalExpense: 0,
@@ -53,7 +52,7 @@ export default function Analytics() {
 
         try {
             const token = localStorage.getItem("token");
-            // 🟢 FIX 2: Use BASE_URL instead of http://localhost:5000
+            // 🟢 FIX 2: Use BASE_URL
             const res = await fetch(`${BASE_URL}/dashboard/analytics`, {
                 headers: { Authorization: token }
             });
@@ -87,7 +86,6 @@ export default function Analytics() {
             const date = new Date(tx.transaction_date);
             const monthKey = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
 
-            // Monthly Data Init
             if (!months[monthKey]) months[monthKey] = { name: monthKey, income: 0, expense: 0 };
 
             if (tx.type === 'income') {
@@ -98,12 +96,10 @@ export default function Analytics() {
                 tExpense += absAmount;
                 months[monthKey].expense += absAmount;
 
-                // Category Logic
                 const cat = tx.category_name || 'Uncategorized';
                 if (!categories[cat]) categories[cat] = 0;
                 categories[cat] += absAmount;
 
-                // Largest Expense Logic
                 if (absAmount > largestExp.amount) {
                     largestExp = { name: tx.name, amount: absAmount };
                 }
@@ -113,8 +109,6 @@ export default function Analytics() {
         // 2. Calculate Final Stats
         const net = tIncome - tExpense;
         const rate = tIncome > 0 ? (net / tIncome) * 100 : 0;
-
-        // Approx days span
         const dates = data.map(t => new Date(t.transaction_date).getTime());
         const daySpan = dates.length > 0
             ? Math.max(1, Math.ceil((Math.max(...dates) - Math.min(...dates)) / (1000 * 60 * 60 * 24)))
@@ -142,7 +136,6 @@ export default function Analytics() {
 
     // 🟢 AI RECOMMENDER
     const getRecommendations = async () => {
-        // 🟢 FIX 3: Check BASE_URL here too
         if (!BASE_URL) {
             setAiRecommendations(["Error: API configuration missing."]);
             setAnalyzing(false);
@@ -158,7 +151,7 @@ export default function Analytics() {
                 recent_trend: monthlyData.slice(-3)
             };
 
-            // 🟢 FIX 4: Use BASE_URL instead of http://localhost:5000
+            // 🟢 FIX 3: Use BASE_URL
             const res = await fetch(`${BASE_URL}/ai/chat`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": token },
@@ -188,11 +181,9 @@ export default function Analytics() {
     };
 
     if (loading) return <div className="flex h-64 items-center justify-center text-gray-500">Loading analytics...</div>;
-    // ... rest of the component remains the same
 
-    // ...
-    // (return statement for the main UI remains here)
-    // ...
+    // 🟢 FIX 4: Conditional Rendering Check
+    const hasData = transactions.length > 0;
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto pb-10">
@@ -213,7 +204,6 @@ export default function Analytics() {
                         <span className="text-gray-500 text-sm font-medium">Total Income</span>
                         <div className="p-2 bg-green-100 text-green-600 rounded-lg"><TrendingUp size={20}/></div>
                     </div>
-                    {/* PHP Symbol Added */}
                     <h3 className="text-2xl font-bold text-gray-900 dark:text-white">₱{stats.totalIncome.toLocaleString()}</h3>
                 </Card>
 
@@ -222,7 +212,6 @@ export default function Analytics() {
                         <span className="text-gray-500 text-sm font-medium">Total Expenses</span>
                         <div className="p-2 bg-red-100 text-red-600 rounded-lg"><TrendingDown size={20}/></div>
                     </div>
-                    {/* PHP Symbol Added */}
                     <h3 className="text-2xl font-bold text-gray-900 dark:text-white">₱{stats.totalExpense.toLocaleString()}</h3>
                 </Card>
 
@@ -231,7 +220,6 @@ export default function Analytics() {
                         <span className="text-gray-500 text-sm font-medium">Net Savings</span>
                         <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><Wallet size={20}/></div>
                     </div>
-                    {/* PHP Symbol Added */}
                     <h3 className={`text-2xl font-bold ${stats.netSavings >= 0 ? 'text-blue-600' : 'text-red-500'}`}>
                         ₱{stats.netSavings.toLocaleString()}
                     </h3>
@@ -257,7 +245,6 @@ export default function Analytics() {
                         <div className="space-y-4">
                             <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
                                 <span className="text-sm text-gray-500">Avg Daily Spend</span>
-                                {/* PHP Symbol Added */}
                                 <span className="font-bold text-gray-900 dark:text-white">₱{stats.avgDailySpend.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
@@ -268,7 +255,6 @@ export default function Analytics() {
                                 <span className="text-xs text-red-500 uppercase font-bold">Largest Expense</span>
                                 <div className="flex justify-between items-center mt-1">
                                     <span className="font-medium text-gray-900 dark:text-white truncate max-w-[120px]">{stats.largestExpense.name}</span>
-                                    {/* PHP Symbol Added */}
                                     <span className="font-bold text-red-600">₱{stats.largestExpense.amount.toLocaleString()}</span>
                                 </div>
                             </div>
@@ -310,53 +296,64 @@ export default function Analytics() {
                     </Card>
                 </div>
 
-                {/* 🟢 4. CHARTS SECTION */}
+                {/* 🟢 4. CHARTS SECTION - CONDITIONAL RENDERING APPLIED */}
                 <div className="lg:col-span-2 space-y-6">
-                    {/* Trend / Cashflow Chart */}
-                    <Card>
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Cash Flow & Trends</h3>
-                        <div className="h-72">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={monthlyData}>
-                                    <defs>
-                                        <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
-                                            <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
-                                        </linearGradient>
-                                        <linearGradient id="colorOut" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3}/>
-                                            <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
-                                        </linearGradient>
-                                    </defs>
-                                    <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                                    <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                                    <Tooltip formatter={(value) => `₱${value.toLocaleString()}`} />
-                                    <Legend />
-                                    <Area type="monotone" name="Income" dataKey="income" stroke="#10B981" fillOpacity={1} fill="url(#colorIn)" />
-                                    <Area type="monotone" name="Expenses" dataKey="expense" stroke="#EF4444" fillOpacity={1} fill="url(#colorOut)" />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </Card>
 
-                    {/* Top Spending Categories */}
-                    <Card>
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Top Spending Categories</h3>
-                        <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={categoryData.slice(0, 5)} layout="vertical">
-                                    <XAxis type="number" hide />
-                                    <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 12}} />
-                                    <Tooltip formatter={(value) => `₱${value.toLocaleString()}`} />
-                                    <Bar dataKey="value" fill="#8884d8" radius={[0, 4, 4, 0]}>
-                                        {categoryData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </Card>
+                    {!hasData ? (
+                        <Card className="flex items-center justify-center h-96">
+                            <p className="text-gray-500 dark:text-gray-400">
+                                No transaction data available to generate charts.
+                            </p>
+                        </Card>
+                    ) : (
+                        <>
+                            {/* Trend / Cashflow Chart */}
+                            <Card>
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Cash Flow & Trends</h3>
+                                <div className="h-72">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={monthlyData}>
+                                            <defs>
+                                                <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
+                                                    <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
+                                                </linearGradient>
+                                                <linearGradient id="colorOut" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3}/>
+                                                    <stop offset="95%" stopColor="#EF4444" stopOpacity={0}/>
+                                                </linearGradient>
+                                            </defs>
+                                            <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                                            <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                                            <Tooltip formatter={(value) => `₱${value.toLocaleString()}`} />
+                                            <Legend />
+                                            <Area type="monotone" name="Income" dataKey="income" stroke="#10B981" fillOpacity={1} fill="url(#colorIn)" />
+                                            <Area type="monotone" name="Expenses" dataKey="expense" stroke="#EF4444" fillOpacity={1} fill="url(#colorOut)" />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </Card>
+
+                            {/* Top Spending Categories */}
+                            <Card>
+                                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Top Spending Categories</h3>
+                                <div className="h-64">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={categoryData.slice(0, 5)} layout="vertical">
+                                            <XAxis type="number" hide />
+                                            <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 12}} />
+                                            <Tooltip formatter={(value) => `₱${value.toLocaleString()}`} />
+                                            <Bar dataKey="value" fill="#8884d8" radius={[0, 4, 4, 0]}>
+                                                {categoryData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </Card>
+                        </>
+                    )}
                 </div>
             </div>
         </div>
