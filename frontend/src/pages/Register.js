@@ -1,14 +1,25 @@
-import AuthLayout from "../components/AuthLayout";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 // 🚀 Use the environment variable for the base API URL
 const BASE_URL = process.env.REACT_APP_API_URL;
 
+// --- FIX: Integrated Dummy AuthLayout Component ---
+// This component simulates the layout wrapper for the authentication pages.
+// Replace this with your actual imported AuthLayout in your final project structure.
+function AuthLayout({ children }) {
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-4">
+            {children}
+        </div>
+    );
+}
+// ----------------------------------------------------
+
 export default function Register() {
     const navigate = useNavigate();
     const [error, setError] = useState("");
-    const [loading, setLoading] = useState(false); // New: Loading state
+    const [loading, setLoading] = useState(false); // Manages loading state for UX
     const [form, setForm] = useState({
         name: "",
         email: "",
@@ -22,9 +33,9 @@ export default function Register() {
         e.preventDefault();
         setError("");
 
-        // ⚠️ Check for API URL before proceeding
+        // ⚠️ Configuration check
         if (!BASE_URL) {
-            setError("Configuration error: API URL is missing.");
+            setError("Configuration Error: API URL is missing. Check REACT_APP_API_URL.");
             console.error("REACT_APP_API_URL is not defined.");
             return;
         }
@@ -45,25 +56,30 @@ export default function Register() {
                 body: JSON.stringify({
                     name: form.name,
                     email: form.email,
-                    // Only send 'password' to the backend, not 'confirm'
                     password: form.password,
                 }),
             });
 
+            // Check if the response is JSON (important for handling 404/500 errors)
+            const contentType = response.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                throw new Error("Received non-JSON response. Server issue or incorrect endpoint.");
+            }
+
             const data = await response.json();
 
             if (response.ok) {
-                // Success: Redirect to Login so they can sign in
+                // Success: Alert should be replaced with a UI modal/message box
                 alert("Account created successfully! Please log in.");
                 navigate("/login");
             } else {
-                // Fail: Show error from backend (e.g., "User already exists")
+                // Fail (e.g., user already exists)
                 setError(data.error || "Registration failed. Please check your details.");
             }
         } catch (err) {
             console.error("Connection Error:", err);
-            // This error is usually a network issue (like CORS or server being down)
-            setError("Cannot connect to the server. Please try again later.");
+            // Catch network errors (like server down or CORS issues)
+            setError(`Cannot connect to server: ${err.message || "Please check network and API URL."}`);
         } finally {
             setLoading(false); // Stop loading regardless of success/fail
         }
@@ -71,13 +87,13 @@ export default function Register() {
 
     return (
         <AuthLayout>
-            <div className="bg-gray-800 p-8 rounded-2xl w-full max-w-md shadow-lg">
+            <div className="bg-gray-800 p-8 rounded-2xl w-full max-w-md shadow-lg text-white">
                 <h2 className="text-3xl font-bold mb-4">Create account</h2>
                 <p className="text-gray-400 mb-6">Sign up to get started with FinScope</p>
 
                 {/* Error Alert Box */}
                 {error && (
-                    <div className="bg-red-500/10 border border-red-500 text-red-500 p-3 rounded mb-4 text-sm">
+                    <div className="bg-red-500/10 border border-red-500 text-red-400 p-3 rounded-xl mb-4 text-sm font-medium">
                         {error}
                     </div>
                 )}
@@ -88,10 +104,10 @@ export default function Register() {
                         <label className="block text-sm mb-1">Full Name</label>
                         <input
                             required
-                            className="w-full p-3 rounded-lg bg-gray-700 focus:ring-2 ring-blue-500 outline-none"
+                            className="w-full p-3 rounded-lg bg-gray-700 border border-transparent focus:border-blue-500 focus:ring-2 ring-blue-500 outline-none transition"
                             value={form.name}
                             onChange={(e) => update("name", e.target.value)}
-                            disabled={loading} // Disabled while loading
+                            disabled={loading}
                         />
                     </div>
 
@@ -100,10 +116,10 @@ export default function Register() {
                         <input
                             required
                             type="email"
-                            className="w-full p-3 rounded-lg bg-gray-700 focus:ring-2 ring-blue-500 outline-none"
+                            className="w-full p-3 rounded-lg bg-gray-700 border border-transparent focus:border-blue-500 focus:ring-2 ring-blue-500 outline-none transition"
                             value={form.email}
                             onChange={(e) => update("email", e.target.value)}
-                            disabled={loading} // Disabled while loading
+                            disabled={loading}
                         />
                     </div>
 
@@ -112,10 +128,10 @@ export default function Register() {
                         <input
                             required
                             type="password"
-                            className="w-full p-3 rounded-lg bg-gray-700 focus:ring-2 ring-blue-500 outline-none"
+                            className="w-full p-3 rounded-lg bg-gray-700 border border-transparent focus:border-blue-500 focus:ring-2 ring-blue-500 outline-none transition"
                             value={form.password}
                             onChange={(e) => update("password", e.target.value)}
-                            disabled={loading} // Disabled while loading
+                            disabled={loading}
                         />
                     </div>
 
@@ -124,25 +140,25 @@ export default function Register() {
                         <input
                             required
                             type="password"
-                            className="w-full p-3 rounded-lg bg-gray-700 focus:ring-2 ring-blue-500 outline-none"
+                            className="w-full p-3 rounded-lg bg-gray-700 border border-transparent focus:border-blue-500 focus:ring-2 ring-blue-500 outline-none transition"
                             value={form.confirm}
                             onChange={(e) => update("confirm", e.target.value)}
-                            disabled={loading} // Disabled while loading
+                            disabled={loading}
                         />
                     </div>
 
                     <button
                         type="submit"
-                        className="w-full p-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition disabled:opacity-50"
-                        disabled={loading} // Added disabled state
+                        className="w-full p-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={loading}
                     >
                         {loading ? "Creating account..." : "Create account →"}
                     </button>
                 </form>
 
-                <p className="text-center text-sm mt-6">
+                <p className="text-center text-sm mt-6 text-gray-400">
                     Already have an account?{" "}
-                    <a href="/login" className="text-blue-400 hover:underline">
+                    <a href="/login" className="text-blue-400 hover:text-blue-300 hover:underline transition">
                         Sign in
                     </a>
                 </p>
