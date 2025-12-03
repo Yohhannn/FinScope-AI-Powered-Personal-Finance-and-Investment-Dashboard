@@ -10,8 +10,26 @@ import {
 // 🚀 NEW: Define the base API URL from the environment variable
 const BASE_URL = process.env.REACT_APP_API_URL;
 
-// --- Placeholder Components for Runnability ---
-// Replace these with your actual imported components in your final project structure.
+// --- FIX: Define PLACEHOLDER Components for Sub-pages ---
+// In a real application, you would replace these with actual imports:
+// import Wallets from './Wallets';
+// import BudgetGoals from './Budget-Goals';
+// ... etc.
+const Wallets = ({ onAddTransaction, onAddWallet }) => (
+    <div className="text-center py-24 text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-xl m-4">
+        <p className="mb-4">Wallets Page Content Loaded (Placeholder)</p>
+        <button onClick={onAddTransaction} className="text-blue-500 hover:underline mr-4">Add Transaction</button>
+        <button onClick={onAddWallet} className="text-blue-500 hover:underline">Add Wallet</button>
+    </div>
+);
+const BudgetGoals = () => <div className="text-center py-24 text-gray-500 dark:text-gray-400">Budget/Goals Page Content (Placeholder)</div>;
+const AIAdvisor = () => <div className="text-center py-24 text-gray-500 dark:text-gray-400">AI Advisor Page Content (Placeholder)</div>;
+const Analytics = () => <div className="text-center py-24 text-gray-500 dark:text-gray-400">Analytics Page Content (Placeholder)</div>;
+const Settings = () => <div className="text-center py-24 text-gray-500 dark:text-gray-400">Settings Page Content (Placeholder)</div>;
+// --- End Placeholder Fix ---
+
+
+// --- UI Component Imports (Definitions included for self-containment) ---
 const Card = ({ children, className = '' }) => (
     <div className={`bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 ${className}`}>
         {children}
@@ -19,21 +37,23 @@ const Card = ({ children, className = '' }) => (
 );
 const ProgressBar = ({ current, total, color = 'blue' }) => {
     const percentage = Math.min((current / total) * 100, 100);
+    const colorClasses = {
+        blue: 'bg-blue-600', green: 'bg-green-600', purple: 'bg-purple-600', yellow: 'bg-yellow-500', red: 'bg-red-500',
+    };
     return (
         <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
-            <div className={`h-2 rounded-full bg-${color}-600`} style={{ width: `${percentage}%` }}></div>
+            <div className={`h-2 rounded-full ${colorClasses[color]}`} style={{ width: `${percentage}%` }}></div>
         </div>
     );
 };
-const MockModal = ({ isOpen, onClose, onSuccess }) => {
+const MockModal = ({ isOpen, onClose, onSuccess, selectedTx }) => {
     if (!isOpen) return null;
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-xl max-w-lg w-full">
-                <h3 className="text-xl font-bold mb-4">Mock Modal</h3>
-                <p className="text-gray-500">This is a placeholder modal.</p>
+                <h3 className="text-xl font-bold mb-4">Transaction/Wallet Mock Modal</h3>
+                <p className="text-gray-500">{selectedTx ? `Selected TX: ${selectedTx.name}` : 'No transaction selected'}</p>
                 <button onClick={() => { onSuccess(); onClose(); }} className="mt-4 bg-blue-500 text-white p-2 rounded-lg">Done</button>
-                <button onClick={onClose} className="ml-2 mt-4 bg-red-500 text-white p-2 rounded-lg">Close</button>
             </div>
         </div>
     );
@@ -41,14 +61,8 @@ const MockModal = ({ isOpen, onClose, onSuccess }) => {
 const AddTransactionModal = MockModal;
 const AddWalletModal = MockModal;
 const TransactionDetailsModal = MockModal;
+// --- End UI Component Imports ---
 
-// Mock Page Components
-const Wallets = () => <div className="text-center py-24 text-gray-500">Wallets Page Content</div>;
-const BudgetGoals = () => <div className="text-center py-24 text-gray-500">Budget/Goals Page Content</div>;
-const AIAdvisor = () => <div className="text-center py-24 text-gray-500">AI Advisor Page Content</div>;
-const Analytics = () => <div className="text-center py-24 text-gray-500">Analytics Page Content</div>;
-const Settings = () => <div className="text-center py-24 text-gray-500">Settings Page Content</div>;
-// --- End Placeholder Components ---
 
 // Helper function
 const getGreeting = () => {
@@ -73,7 +87,7 @@ const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh 
     // Function to fetch AI Insight on demand (or initial load)
     const generateInsight = async () => {
         setAiLoading(true);
-        setAiInsight(''); // Clear old insight display while loading new one
+        setAiInsight('');
 
         if (!BASE_URL) {
             setAiInsight("API Configuration Error: BASE_URL is not set.");
@@ -88,14 +102,12 @@ const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh 
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": token },
                 body: JSON.stringify({
-                    // Simple prompt for the card insight
                     message: "Look at my dashboard data. Give me a 2-sentence summary of my financial health and 1 actionable tip."
                 })
             });
             const result = await res.json();
 
             if (res.ok) {
-                // Set state AND persist to localStorage
                 setAiInsight(result.reply);
                 localStorage.setItem('aiInsight', result.reply);
             }
@@ -130,23 +142,22 @@ const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh 
                         netWorthChange: dashData.netWorthChange || 0,
                         wallets: dashData.wallets,
                         recentTransactions: dashData.recentTransactions,
-                        budgets: dashData.budgets.filter(b => b.is_pinned), // Filter pinned budgets
-                        goals: dashData.goals.filter(g => g.is_pinned) // Filter pinned goals
+                        budgets: dashData.budgets.filter(b => b.is_pinned),
+                        goals: dashData.goals.filter(g => g.is_pinned)
                     });
                 }
             } catch (error) { console.error(error); }
             finally { setLoading(false); }
         };
         fetchDashboard();
-    }, [refreshTrigger]); // Data refreshes when a transaction/wallet is added
+    }, [refreshTrigger]);
 
     // 2. AI Insight Initial Load (Runs only once on mount IF localStorage is empty)
     useEffect(() => {
-        // Only run if aiInsight state (loaded from localStorage) is empty
         if (!aiInsight) {
             generateInsight();
         }
-    }, []); // Empty dependency array ensures it runs only once
+    }, []);
 
     const handleTxClick = (tx) => { setSelectedTx(tx); setIsTxModalOpen(true); };
 
@@ -429,7 +440,7 @@ export default function Dashboard() {
         switch (currentPage) {
             case 'dashboard': return <DashboardHome setCurrentPage={setCurrentPage} user={user} refreshTrigger={refreshTrigger} onTriggerRefresh={triggerRefresh} />;
             case 'wallets': return <Wallets onAddTransaction={() => setIsTransactionModalOpen(true)} onAddWallet={() => setIsWalletModalOpen(true)} refreshTrigger={refreshTrigger} onTriggerRefresh={triggerRefresh} />;
-            case 'budgets': return <BudgetGoals />;
+            case 'budgets': return <BudgetGoals setCurrentPage={setCurrentPage}/>; // Pass setCurrentPage for navigation
             case 'advisor': return <AIAdvisor />;
             case 'analytics': return <Analytics />;
             case 'settings': return <Settings />;
