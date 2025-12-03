@@ -1,37 +1,10 @@
+import AuthLayout from "../components/AuthLayout";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-// 🚀 Use the environment variable for the base API URL
-const BASE_URL = process.env.REACT_APP_API_URL;
-
-// --- Integrated Dummy AuthLayout Component ---
-// Modified for the split-screen design: flex row
-function AuthLayout({ children }) {
-    return (
-        <div className="min-h-screen flex text-white font-inter">
-            {children}
-        </div>
-    );
-}
-
-// Icon Components (to avoid external imports)
-const Zap = (props) => (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-);
-const Wallet = (props) => (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M5 9h14"/></svg>
-);
-const TrendingUp = (props) => (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-);
-const ShieldCheck = (props) => (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
-);
 
 export default function Register() {
     const navigate = useNavigate();
     const [error, setError] = useState("");
-    const [loading, setLoading] = useState(false); // Manages loading state for UX
     const [form, setForm] = useState({
         name: "",
         email: "",
@@ -45,24 +18,15 @@ export default function Register() {
         e.preventDefault();
         setError("");
 
-        // ⚠️ Configuration check
-        if (!BASE_URL) {
-            setError("Configuration Error: API URL is missing. Check REACT_APP_API_URL.");
-            console.error("REACT_APP_API_URL is not defined.");
-            return;
-        }
-
         // 1. Validation: Check passwords match
         if (form.password !== form.confirm) {
-            setError("Passwords do not match.");
+            setError("Passwords do not match");
             return;
         }
 
-        setLoading(true); // Start loading
-
         try {
-            // ✅ Use the environment variable here
-            const response = await fetch(`${BASE_URL}/auth/register`, {
+            // 🟢 UPDATED URL to match MVC structure
+            const response = await fetch("http://localhost:5000/api/auth/register", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -72,157 +36,94 @@ export default function Register() {
                 }),
             });
 
-            // Check if the response is JSON (important for handling 404/500 errors)
-            const contentType = response.headers.get("content-type");
-            if (!contentType || !contentType.includes("application/json")) {
-                throw new Error("Received non-JSON response. Server issue or incorrect endpoint.");
-            }
-
             const data = await response.json();
 
             if (response.ok) {
-                // Success: Alert should be replaced with a UI modal/message box
-                alert("Account created successfully! Please log in.");
+                // Success: Redirect to Login so they can sign in
+                alert("Account created! Please log in.");
                 navigate("/login");
             } else {
-                // Fail (e.g., user already exists)
-                setError(data.error || "Registration failed. Please check your details.");
+                // Fail: Show error from backend (e.g., "User already exists")
+                setError(data.error || "Registration failed");
             }
         } catch (err) {
             console.error("Connection Error:", err);
-            // Catch network errors (like server down or CORS issues)
-            setError(`Cannot connect to server: ${err.message || "Please check network and API URL."}`);
-        } finally {
-            setLoading(false); // Stop loading regardless of success/fail
+            setError("Server is not responding. Please try again later.");
         }
     };
 
-    const FeatureItem = ({ Icon, title, description }) => (
-        <div className="flex items-start mb-4 text-sm">
-            <Icon className="text-blue-300 flex-shrink-0 mt-1" />
-            <div className="ml-3">
-                <p className="font-semibold">{title}</p>
-                <p className="text-gray-400 text-xs">{description}</p>
-            </div>
-        </div>
-    );
-
     return (
         <AuthLayout>
-            {/* LEFT SIDE: Promotional & Design (Deep Blue) - Consistent with Login.jsx */}
-            <div className="hidden lg:flex flex-col justify-center items-start p-16 w-1/2 bg-[#1A4F90] shadow-2xl transition duration-500 ease-in-out">
-                <h1 className="text-5xl font-extrabold mb-4 leading-tight">
-                    Welcome to the future of <span className="text-white bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 to-blue-200">financial intelligence</span>.
-                </h1>
-                <p className="text-lg text-blue-200 mb-10">
-                    FinScope is your AI-powered companion for smarter budgeting, investing, and wealth growth.
+            <div className="bg-gray-800 p-8 rounded-2xl w-full max-w-md shadow-lg">
+                <h2 className="text-3xl font-bold mb-4">Create account</h2>
+                <p className="text-gray-400 mb-6">Sign up to get started with FinScope</p>
+
+                {/* Error Alert Box */}
+                {error && (
+                    <div className="bg-red-500/10 border border-red-500 text-red-500 p-3 rounded mb-4 text-sm">
+                        {error}
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+
+                    <div>
+                        <label className="block text-sm mb-1">Full Name</label>
+                        <input
+                            required
+                            className="w-full p-3 rounded-lg bg-gray-700 focus:ring-2 ring-blue-500 outline-none"
+                            value={form.name}
+                            onChange={(e) => update("name", e.target.value)}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm mb-1">Email Address</label>
+                        <input
+                            required
+                            type="email"
+                            className="w-full p-3 rounded-lg bg-gray-700 focus:ring-2 ring-blue-500 outline-none"
+                            value={form.email}
+                            onChange={(e) => update("email", e.target.value)}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm mb-1">Password</label>
+                        <input
+                            required
+                            type="password"
+                            className="w-full p-3 rounded-lg bg-gray-700 focus:ring-2 ring-blue-500 outline-none"
+                            value={form.password}
+                            onChange={(e) => update("password", e.target.value)}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm mb-1">Confirm Password</label>
+                        <input
+                            required
+                            type="password"
+                            className="w-full p-3 rounded-lg bg-gray-700 focus:ring-2 ring-blue-500 outline-none"
+                            value={form.confirm}
+                            onChange={(e) => update("confirm", e.target.value)}
+                        />
+                    </div>
+
+                    <button
+                        type="submit"
+                        className="w-full p-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition"
+                    >
+                        Create account →
+                    </button>
+                </form>
+
+                <p className="text-center text-sm mt-6">
+                    Already have an account?{" "}
+                    <a href="/login" className="text-blue-400 hover:underline">
+                        Sign in
+                    </a>
                 </p>
-
-                <div className="space-y-6">
-                    <FeatureItem
-                        Icon={Zap}
-                        title="AI Financial Advisor"
-                        description="Get personalized, predictive advice based on your real spending patterns."
-                    />
-                    <FeatureItem
-                        Icon={Wallet}
-                        title="Unified Wallet Management"
-                        description="Track all balances (bank, e-wallet, cash) in one centralized, secure dashboard."
-                    />
-                    <FeatureItem
-                        Icon={TrendingUp}
-                        title="Predictive Budgeting"
-                        description="AI predicts goal achievement and suggests real-time improvements to savings habits."
-                    />
-                    <FeatureItem
-                        Icon={ShieldCheck}
-                        title="Bank-Grade Security"
-                        description="Your data is protected with industry-leading encryption and privacy protocols."
-                    />
-                </div>
-            </div>
-
-            {/* RIGHT SIDE: Registration Form (Dark Charcoal) - Consistent with Login.jsx */}
-            <div className="w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-16 bg-[#16181C]">
-                <div className="bg-[#24262A] p-8 rounded-xl w-full max-w-sm shadow-2xl">
-                    <h2 className="text-xl font-bold mb-1">Create Account</h2>
-                    <p className="text-gray-400 mb-6 text-sm">Sign up to get started with FinScope</p>
-
-                    {/* Error Alert Box */}
-                    {error && (
-                        <div className="bg-red-500/10 border border-red-500 text-red-400 p-3 rounded-lg mb-4 text-sm font-medium">
-                            {error}
-                        </div>
-                    )}
-
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Name */}
-                        <div>
-                            <label className="block text-xs font-medium mb-1 text-gray-400">Full Name</label>
-                            <input
-                                required
-                                className="w-full p-3 rounded-lg bg-[#313337] border border-[#313337] focus:border-blue-500 focus:ring-1 ring-blue-500 outline-none transition duration-200 text-sm"
-                                value={form.name}
-                                onChange={(e) => update("name", e.target.value)}
-                                disabled={loading}
-                            />
-                        </div>
-
-                        {/* Email */}
-                        <div>
-                            <label className="block text-xs font-medium mb-1 text-gray-400">Email Address</label>
-                            <input
-                                required
-                                type="email"
-                                className="w-full p-3 rounded-lg bg-[#313337] border border-[#313337] focus:border-blue-500 focus:ring-1 ring-blue-500 outline-none transition duration-200 text-sm"
-                                value={form.email}
-                                onChange={(e) => update("email", e.target.value)}
-                                disabled={loading}
-                            />
-                        </div>
-
-                        {/* Password */}
-                        <div>
-                            <label className="block text-xs font-medium mb-1 text-gray-400">Password</label>
-                            <input
-                                required
-                                type="password"
-                                className="w-full p-3 rounded-lg bg-[#313337] border border-[#313337] focus:border-blue-500 focus:ring-1 ring-blue-500 outline-none transition duration-200 text-sm"
-                                value={form.password}
-                                onChange={(e) => update("password", e.target.value)}
-                                disabled={loading}
-                            />
-                        </div>
-
-                        {/* Confirm Password */}
-                        <div>
-                            <label className="block text-xs font-medium mb-1 text-gray-400">Confirm Password</label>
-                            <input
-                                required
-                                type="password"
-                                className="w-full p-3 rounded-lg bg-[#313337] border border-[#313337] focus:border-blue-500 focus:ring-1 ring-blue-500 outline-none transition duration-200 text-sm"
-                                value={form.confirm}
-                                onChange={(e) => update("confirm", e.target.value)}
-                                disabled={loading}
-                            />
-                        </div>
-
-                        <button
-                            type="submit"
-                            className="w-full p-3 mt-4 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-white transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm shadow-md shadow-blue-900/50"
-                            disabled={loading}
-                        >
-                            {loading ? "Creating account..." : "Create account →"}
-                        </button>
-                    </form>
-
-                    <p className="text-center text-xs mt-6 text-gray-500">
-                        Already have an account?{" "}
-                        <a href="/login" className="text-blue-400 hover:text-blue-300 hover:underline transition">
-                            Sign in
-                        </a>
-                    </p>
-                </div>
             </div>
         </AuthLayout>
     );
