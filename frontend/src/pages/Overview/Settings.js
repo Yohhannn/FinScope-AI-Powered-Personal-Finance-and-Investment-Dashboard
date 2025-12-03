@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Save, Loader2, CheckCircle, AlertCircle, User, Lock, Shield } from 'lucide-react';
 import { Card, SectionHeader } from '../../components/DashboardUI';
 
+// 🚀 NEW: Define the base API URL from the environment variable
+const BASE_URL = process.env.REACT_APP_API_URL;
+
 export default function Settings() {
     // PROFILE STATE
     const [formData, setFormData] = useState({ name: '', email: '' });
@@ -30,9 +33,17 @@ export default function Settings() {
         setProfileLoading(true);
         setProfileMsg({ type: '', text: '' });
 
+        if (!BASE_URL) {
+            setProfileMsg({ type: 'error', text: 'API URL not configured.' });
+            setProfileLoading(false);
+            return;
+        }
+
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch("http://localhost:5000/api/auth/profile", {
+
+            // 🟢 UPDATED: Using BASE_URL
+            const res = await fetch(`${BASE_URL}/auth/profile`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json", "Authorization": token },
                 body: JSON.stringify(formData)
@@ -59,6 +70,12 @@ export default function Settings() {
         setPassLoading(true);
         setPassMsg({ type: '', text: '' });
 
+        if (!BASE_URL) {
+            setPassMsg({ type: 'error', text: 'API URL not configured.' });
+            setPassLoading(false);
+            return;
+        }
+
         // 1. Client-side Validation
         if (passData.newPassword !== passData.confirmPassword) {
             setPassMsg({ type: 'error', text: "New passwords do not match." });
@@ -73,7 +90,9 @@ export default function Settings() {
 
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch("http://localhost:5000/api/auth/change-password", {
+
+            // 🟢 UPDATED: Using BASE_URL
+            const res = await fetch(`${BASE_URL}/auth/change-password`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json", "Authorization": token },
                 body: JSON.stringify({

@@ -1,15 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     Plus, Tags, Pencil, Star, TrendingUp, Target,
-    CreditCard, Wallet, Banknote, Coins, ArrowUpRight, Sparkles, Lightbulb, Loader2
+    CreditCard, Wallet, Banknote, Coins, ArrowUpRight, Lightbulb, Loader2
 } from 'lucide-react';
-import { Card, SectionHeader, ProgressBar } from '../../components/DashboardUI';
+import { Card, ProgressBar } from '../../components/DashboardUI';
 import BudgetModal from '../../components/BudgetModal';
 import GoalModal from '../../components/GoalModal';
 import ManageCategoriesModal from '../../components/ManageCategoriesModal';
 import ContributeGoalModal from '../../components/ContributeGoalModal';
 import GoalHistoryModal from '../../components/GoalHistoryModal';
 import BudgetHistoryModal from '../../components/BudgetHistoryModal';
+
+// 🚀 NEW: Define the base API URL from the environment variable
+const BASE_URL = process.env.REACT_APP_API_URL;
 
 // Helper for Wallet Styles
 const getWalletStyle = (type) => {
@@ -49,8 +52,13 @@ export default function BudgetGoals({ setCurrentPage }) {
     // 🟢 Function to call AI for Budget/Goal Summary
     const generateBudgetInsight = async (budgetData, goalData) => {
         setAiLoading(true);
-        // Clear previous insight while fetching
         setAiBudgetInsight('');
+
+        if (!BASE_URL) {
+            setAiBudgetInsight("API Configuration Error: BASE_URL is not set.");
+            setAiLoading(false);
+            return;
+        }
 
         // Use current state data if no new data is provided
         const currentBudgets = budgetData || budgets;
@@ -73,10 +81,10 @@ export default function BudgetGoals({ setCurrentPage }) {
                 }))
             };
 
-            // Added "in Philippine Peso" to the prompt
             const message = `Analyze this list of current budgets and savings goals (in Philippine Peso). Highlight any budget that is over 80% used and any goal that is significantly behind schedule (under 30% complete). Provide 1 actionable recommendation. Data: ${JSON.stringify(context)}`;
 
-            const res = await fetch("http://localhost:5000/api/ai/chat", {
+            // 🟢 UPDATED: Using BASE_URL
+            const res = await fetch(`${BASE_URL}/ai/chat`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": token },
                 body: JSON.stringify({ message })
@@ -102,12 +110,20 @@ export default function BudgetGoals({ setCurrentPage }) {
     const fetchAllData = useCallback(async () => {
         let fetchedBudgets = [];
         let fetchedGoals = [];
+
+        if (!BASE_URL) {
+            console.error("API Configuration Error: BASE_URL is not set.");
+            setLoading(false);
+            return;
+        }
+
         try {
             const token = localStorage.getItem("token");
 
+            // 🟢 UPDATED: Using BASE_URL
             const [budgetRes, dashRes] = await Promise.all([
-                fetch("http://localhost:5000/api/dashboard/budgets", { headers: { Authorization: token } }),
-                fetch("http://localhost:5000/api/dashboard", { headers: { Authorization: token } })
+                fetch(`${BASE_URL}/dashboard/budgets`, { headers: { Authorization: token } }),
+                fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } })
             ]);
 
             const budgetData = await budgetRes.json();
@@ -133,11 +149,12 @@ export default function BudgetGoals({ setCurrentPage }) {
 
     // 2. Initial AI Insight Load (Runs only once on mount IF localStorage is empty)
     useEffect(() => {
-        if (!aiBudgetInsight) {
+        if (!aiBudgetInsight && BASE_URL) {
             const fetchInitialDataAndGenerateInsight = async () => {
                 try {
                     const token = localStorage.getItem("token");
-                    const res = await fetch("http://localhost:5000/api/dashboard/budgets", { headers: { Authorization: token } });
+                    // 🟢 UPDATED: Using BASE_URL
+                    const res = await fetch(`${BASE_URL}/dashboard/budgets`, { headers: { Authorization: token } });
                     const data = await res.json();
                     if (res.ok) {
                         generateBudgetInsight(data.budgets, data.goals);
@@ -151,9 +168,12 @@ export default function BudgetGoals({ setCurrentPage }) {
     }, []);
 
     const togglePin = async (type, id, currentStatus) => {
+        if (!BASE_URL) return;
+
+        // 🟢 UPDATED: Using BASE_URL
         const url = type === 'budget'
-            ? `http://localhost:5000/api/dashboard/budget/${id}/pin`
-            : `http://localhost:5000/api/dashboard/goal/${id}/pin`;
+            ? `${BASE_URL}/dashboard/budget/${id}/pin`
+            : `${BASE_URL}/dashboard/goal/${id}/pin`;
 
         const setState = type === 'budget' ? setBudgets : setGoals;
         const idKey = type === 'budget' ? 'budget_id' : 'goal_id';

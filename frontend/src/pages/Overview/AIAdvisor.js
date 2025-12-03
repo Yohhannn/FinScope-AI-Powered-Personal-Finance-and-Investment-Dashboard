@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Bot, User, Sparkles, Loader2, Trash2, Upload, X } from 'lucide-react';
 
+// 🚀 NEW: Define the base API URL from the environment variable
+const BASE_URL = process.env.REACT_APP_API_URL;
+
 // Define the initial welcome message structure
 const initialMessage = { role: 'assistant', content: "Hello! I'm your FinScope AI Advisor. I have access to your wallets, budgets, and goals. How can I help you optimize your finances today?" };
 
@@ -127,6 +130,11 @@ export default function AIAdvisor() {
         let displayUserMessage = input.trim();
         if (!displayUserMessage && !pdfContext) return;
 
+        if (!BASE_URL) {
+            setMessages(prev => [...prev, { role: 'assistant', content: "System Error: API URL is not configured." }]);
+            return;
+        }
+
         // If there's no typed message but there is PDF context, use a default analysis prompt
         if (!displayUserMessage && pdfContext) {
             displayUserMessage = "Analyze the uploaded financial data in the context.";
@@ -165,7 +173,8 @@ export default function AIAdvisor() {
 
             const messageToSend = promptContent;
 
-            const res = await fetch("http://localhost:5000/api/ai/chat", {
+            // 🟢 UPDATED: Using BASE_URL
+            const res = await fetch(`${BASE_URL}/ai/chat`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",

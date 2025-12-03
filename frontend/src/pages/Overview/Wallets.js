@@ -5,13 +5,13 @@ import {
 } from 'lucide-react';
 
 // --- IMPORTANT: Ensure these paths match your project structure ---
-import { Card } from '../../components/DashboardUI'; // Removed SectionHeader as it wasn't used
+import { Card } from '../../components/DashboardUI';
 import EditWalletModal from '../../components/EditWalletModal';
 import TransactionDetailsModal from '../../components/TransactionDetailsModal';
 import WalletDetailsModal from '../../components/WalletDetailsModal';
 import TransferModal from '../../components/TransferModal';
 
-// 🚀 Define the base API URL from the environment variable
+// 🚀 NEW: Define the base API URL from the environment variable
 const BASE_URL = process.env.REACT_APP_API_URL;
 
 const getWalletStyle = (type) => {
@@ -68,6 +68,7 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
 
             const message = `Analyze this list of user wallets (Total Net Worth: $${currentNetWorth.toLocaleString()}) and provide a 1-sentence assessment of their current liquidity or asset diversification. Wallets: ${JSON.stringify(walletSummary)}`;
 
+            // 🟢 UPDATED: Using BASE_URL
             const res = await fetch(`${BASE_URL}/ai/chat`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": token },
@@ -103,6 +104,7 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
 
             try {
                 const token = localStorage.getItem("token");
+                // 🟢 UPDATED: Using BASE_URL
                 const res = await fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } });
                 const data = await res.json();
 
@@ -132,6 +134,7 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
             const fetchInitialDataAndGenerateInsight = async () => {
                 try {
                     const token = localStorage.getItem("token");
+                    // 🟢 UPDATED: Using BASE_URL
                     const res = await fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } });
                     const data = await res.json();
                     if (res.ok) {
@@ -263,7 +266,6 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
                 </div>
             </div>
 
-            {/* Modals */}
             <EditWalletModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} wallet={selectedWallet} onSuccess={onTriggerRefresh} />
             <TransactionDetailsModal isOpen={isTxModalOpen} onClose={() => setIsTxModalOpen(false)} transaction={selectedTx} onSuccess={onTriggerRefresh} />
             <WalletDetailsModal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} walletId={detailWalletId} />
