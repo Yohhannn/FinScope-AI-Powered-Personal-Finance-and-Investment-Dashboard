@@ -4,7 +4,7 @@ import {
     LayoutDashboard, Wallet, PiggyBank, Sparkles,
     BarChart3, Settings as SettingsIcon, Sun, Moon, Plus, Bell, User,
     ChevronDown, Lightbulb, ArrowRight, ArrowUpRight, ArrowDownRight,
-    CreditCard, LogOut, X, RotateCw, Menu
+    CreditCard, LogOut, X, RotateCw, Menu, Star, Target, Loader2
 } from 'lucide-react';
 
 // 🟢 CRITICAL IMPORTS: Import the modals to fix the "not defined" error
@@ -37,6 +37,18 @@ const Card = ({ children, className = '' }) => (
     </div>
 );
 
+const ProgressBar = ({ current, total, color = 'blue' }) => {
+    const percentage = Math.min((current / total) * 100, 100);
+    const colorClasses = {
+        blue: 'bg-blue-600', green: 'bg-green-600', purple: 'bg-purple-600', yellow: 'bg-yellow-500', red: 'bg-red-500',
+    };
+    return (
+        <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
+            <div className={`h-2 rounded-full ${colorClasses[color]}`} style={{ width: `${percentage}%` }}></div>
+        </div>
+    );
+};
+
 // Helper
 const getGreeting = () => {
     const hour = new Date().getHours();
@@ -45,8 +57,9 @@ const getGreeting = () => {
     return 'Good Evening';
 };
 
-// --- HOME COMPONENT ---
-const DashboardHome = ({ user, refreshTrigger, onTriggerRefresh, navigate }) => {
+// --- HOME COMPONENT (Restored UI) ---
+const DashboardHome = ({ user, refreshTrigger, onTriggerRefresh }) => {
+    const navigate = useNavigate();
     const [data, setData] = useState({ netWorth: 0, netWorthChange: 0, wallets: [], recentTransactions: [], budgets: [], goals: [] });
     const [loading, setLoading] = useState(true);
     const [aiInsight, setAiInsight] = useState(() => localStorage.getItem('aiInsight') || '');
@@ -105,11 +118,14 @@ const DashboardHome = ({ user, refreshTrigger, onTriggerRefresh, navigate }) => 
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto">
+            {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div><h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">{getGreeting()}, {user?.name || 'User'}</h1><p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mt-1">Here's what's happening with your money today.</p></div>
             </div>
 
+            {/* Top Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Net Worth Card */}
                 <div className="md:col-span-1 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
                     <div className="relative z-10">
                         <div className="flex items-center gap-2 text-blue-100 mb-2"><Sparkles size={18} /> <span>Total Net Worth</span></div>
@@ -122,6 +138,7 @@ const DashboardHome = ({ user, refreshTrigger, onTriggerRefresh, navigate }) => 
                     <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
                 </div>
 
+                {/* AI Insight Card */}
                 <Card className="md:col-span-2 border-l-4 border-l-blue-500 flex flex-col justify-center relative">
                     <button onClick={generateInsight} disabled={aiLoading} className="absolute top-4 right-4 text-gray-400 hover:text-blue-600 transition disabled:opacity-50"><RotateCw size={18} /></button>
                     <div className="flex items-start gap-4">
@@ -134,7 +151,82 @@ const DashboardHome = ({ user, refreshTrigger, onTriggerRefresh, navigate }) => 
                     </div>
                 </Card>
             </div>
-            {/* ... Rest of Dashboard Grid (Transactions/Wallets) ... */}
+
+            {/* Main Grid (RESTORED SECTIONS) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Left Column: Wallets & Transactions */}
+                <div className="lg:col-span-2 space-y-8">
+                    {/* Wallets */}
+                    <section>
+                        <div className="flex justify-between items-end mb-4 px-1"><h3 className="text-xl font-bold text-gray-900 dark:text-white">My Wallets</h3><button onClick={() => navigate(APP_ROUTES.WALLETS)} className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Manage All</button></div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {data.wallets.slice(0, 4).map(wallet => (
+                                <div key={wallet.wallet_id} className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition flex items-center justify-between">
+                                    <div className="flex items-center gap-4"><div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-gray-600 dark:text-gray-300"><CreditCard size={20} /></div><div><p className="text-sm text-gray-500 dark:text-gray-400 capitalize">{wallet.type}</p><h4 className="font-bold text-gray-900 dark:text-white truncate max-w-[120px]">{wallet.name}</h4></div></div><span className="font-semibold text-gray-900 dark:text-white">₱{Number(wallet.balance).toLocaleString()}</span>
+                                </div>
+                            ))}
+                            {data.wallets.length === 0 && <p className="text-gray-500 p-4">No wallets added yet.</p>}
+                        </div>
+                    </section>
+
+                    {/* Recent Transactions */}
+                    <section>
+                        <div className="flex justify-between items-end mb-4 px-1"><h3 className="text-xl font-bold text-gray-900 dark:text-white">Recent Transactions</h3></div>
+                        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                            {data.recentTransactions.length === 0 ? <div className="p-8 text-center text-gray-500">No transactions yet.</div> : (
+                                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                                    {data.recentTransactions.map(tx => {
+                                        const isIncome = tx.type === 'income';
+                                        return (
+                                            <div key={tx.transaction_id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition duration-150">
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`p-2.5 rounded-full shrink-0 ${isIncome ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>{isIncome ? <ArrowUpRight size={18} /> : <ArrowDownRight size={18} />}</div>
+                                                    <div className="min-w-0">
+                                                        <p className="font-semibold text-gray-900 dark:text-white truncate">{tx.name}</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{tx.category_name || 'Uncategorized'} • {new Date(tx.transaction_date).toLocaleDateString()}</p>
+                                                    </div>
+                                                </div>
+                                                <span className={`font-bold whitespace-nowrap ml-2 ${isIncome ? 'text-green-600' : 'text-red-600'}`}>{isIncome ? '+' : '-'}₱{Math.abs(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </section>
+                </div>
+
+                {/* Right Column: Pinned Items */}
+                <div className="lg:col-span-1 space-y-8">
+                    <section>
+                        <div className="flex justify-between items-center mb-4 px-1">
+                            <div className="flex items-center gap-2"><Star size={18} className="text-yellow-500" fill="currentColor" /><h3 className="text-xl font-bold text-gray-900 dark:text-white">Pinned Budgets</h3></div>
+                            <button onClick={() => navigate(APP_ROUTES.BUDGETS_GOALS)} className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Manage</button>
+                        </div>
+                        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 space-y-6">
+                            {data.budgets.length === 0 ? <div className="text-center py-4"><p className="text-sm text-gray-500">No pinned budgets.</p><button onClick={() => navigate(APP_ROUTES.BUDGETS_GOALS)} className="text-xs text-blue-500 hover:underline mt-1">Go pin some!</button></div> :
+                                data.budgets.map(budget => (
+                                    <div key={budget.budget_id}><div className="flex justify-between text-sm mb-1.5"><span className="font-semibold text-gray-700 dark:text-gray-300">{budget.category_name}</span><span className="text-gray-500">₱{parseFloat(budget.spent).toLocaleString()} / ₱{parseFloat(budget.limit_amount).toLocaleString()}</span></div><ProgressBar current={parseFloat(budget.spent)} total={parseFloat(budget.limit_amount)} color="blue" /></div>
+                                ))
+                            }
+                        </div>
+                    </section>
+
+                    <section>
+                        <div className="flex justify-between items-center mb-4 px-1">
+                            <div className="flex items-center gap-2"><Star size={18} className="text-yellow-500" fill="currentColor" /><h3 className="text-xl font-bold text-gray-900 dark:text-white">Pinned Goals</h3></div>
+                            <button onClick={() => navigate(APP_ROUTES.BUDGETS_GOALS)} className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">Manage</button>
+                        </div>
+                        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 space-y-6">
+                            {data.goals.length === 0 ? <div className="text-center py-4"><p className="text-sm text-gray-500">No pinned goals.</p><button onClick={() => navigate(APP_ROUTES.BUDGETS_GOALS)} className="text-xs text-green-500 hover:underline mt-1">Go pin some!</button></div> :
+                                data.goals.map(goal => (
+                                    <div key={goal.goal_id}><div className="flex justify-between text-sm mb-1.5"><div className="flex items-center gap-2"><Target size={14} className="text-green-500" /><span className="font-semibold text-gray-700 dark:text-gray-300">{goal.name}</span></div><span className="text-gray-500">₱{parseFloat(goal.current_amount).toLocaleString()} / ₱{parseFloat(goal.target_amount).toLocaleString()}</span></div><ProgressBar current={parseFloat(goal.current_amount)} total={parseFloat(goal.target_amount)} color="green" /></div>
+                                ))
+                            }
+                        </div>
+                    </section>
+                </div>
+            </div>
         </div>
     );
 };
@@ -152,6 +244,8 @@ export default function Dashboard() {
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [isDarkMode, setIsDarkMode] = useState(() => { const saved = localStorage.getItem("theme"); return saved ? JSON.parse(saved) : true; });
     const [aiNotifications, setAiNotifications] = useState([]);
+    const profileRef = useRef(null);
+    const notifRef = useRef(null);
 
     const triggerRefresh = () => setRefreshTrigger(prev => prev + 1);
 
@@ -161,9 +255,6 @@ export default function Dashboard() {
         if (isDarkMode) document.documentElement.classList.add('dark');
         else document.documentElement.classList.remove('dark');
     }, [isDarkMode]);
-
-    // Handle Auth & AI Notifications (Shortened for brevity - reuse your existing logic here)
-    // ...
 
     const handleLogout = () => { localStorage.clear(); navigate("/login"); };
     const handleNavClick = (path) => { navigate(path); setIsMobileMenuOpen(false); };
@@ -222,7 +313,7 @@ export default function Dashboard() {
 
                 <main className="flex-1 p-4 md:p-8 pb-24 overflow-y-auto w-full">
                     <Routes>
-                        <Route index element={<DashboardHome user={user} refreshTrigger={refreshTrigger} onTriggerRefresh={triggerRefresh} navigate={navigate} />} />
+                        <Route index element={<DashboardHome user={user} refreshTrigger={refreshTrigger} onTriggerRefresh={triggerRefresh} />} />
                         <Route path={APP_ROUTES.WALLETS} element={<Wallets onAddTransaction={() => setIsTransactionModalOpen(true)} onAddWallet={() => setIsWalletModalOpen(true)} refreshTrigger={refreshTrigger} onTriggerRefresh={triggerRefresh} />} />
                         <Route path={APP_ROUTES.BUDGETS_GOALS} element={<BudgetGoals />} />
                         <Route path={APP_ROUTES.AI_ADVISOR} element={<AIAdvisor />} />
@@ -235,7 +326,6 @@ export default function Dashboard() {
 
             <button onClick={() => setIsTransactionModalOpen(true)} className="fixed bottom-6 right-6 md:bottom-8 md:right-8 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-xl shadow-blue-600/30 z-30 transition-transform hover:scale-110 active:scale-95"><Plus size={28} /></button>
 
-            {/* 🟢 MODALS ARE NOW IMPORTED AND RENDERED */}
             <AddTransactionModal isOpen={isTransactionModalOpen} onClose={() => setIsTransactionModalOpen(false)} onSuccess={triggerRefresh} />
             <AddWalletModal isOpen={isWalletModalOpen} onClose={() => setIsWalletModalOpen(false)} onSuccess={triggerRefresh} />
         </div>
