@@ -11,7 +11,11 @@ import {
 } from 'recharts';
 import { saveAs } from 'file-saver';
 import Papa from 'papaparse';
-import { Card, SectionHeader } from '../../components/DashboardUI';
+import { Card, SectionHeader } from '../../components/DashboardUI'; // Assuming this path is correct
+
+// 🟢 CRITICAL: Define the base API URL from the environment variable
+const BASE_URL = process.env.REACT_APP_API_URL;
+
 
 export default function Analytics() {
     const [transactions, setTransactions] = useState([]);
@@ -40,9 +44,17 @@ export default function Analytics() {
     }, []);
 
     const fetchData = async () => {
+        // 🟢 FIX 1: Check BASE_URL to prevent crashes
+        if (!BASE_URL) {
+            console.error("Configuration Error: API URL is missing. Cannot fetch data.");
+            setLoading(false);
+            return;
+        }
+
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch("http://localhost:5000/api/dashboard/analytics", {
+            // 🟢 FIX 2: Use BASE_URL instead of http://localhost:5000
+            const res = await fetch(`${BASE_URL}/dashboard/analytics`, {
                 headers: { Authorization: token }
             });
 
@@ -50,9 +62,11 @@ export default function Analytics() {
                 const data = await res.json();
                 setTransactions(data);
                 processData(data);
+            } else {
+                console.error("Failed to fetch analytics data:", res.statusText);
             }
         } catch (e) {
-            console.error(e);
+            console.error("Network or Processing Error:", e);
         } finally {
             setLoading(false);
         }
@@ -128,6 +142,13 @@ export default function Analytics() {
 
     // 🟢 AI RECOMMENDER
     const getRecommendations = async () => {
+        // 🟢 FIX 3: Check BASE_URL here too
+        if (!BASE_URL) {
+            setAiRecommendations(["Error: API configuration missing."]);
+            setAnalyzing(false);
+            return;
+        }
+
         setAnalyzing(true);
         try {
             const token = localStorage.getItem("token");
@@ -137,7 +158,8 @@ export default function Analytics() {
                 recent_trend: monthlyData.slice(-3)
             };
 
-            const res = await fetch("http://localhost:5000/api/ai/chat", {
+            // 🟢 FIX 4: Use BASE_URL instead of http://localhost:5000
+            const res = await fetch(`${BASE_URL}/ai/chat`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": token },
                 body: JSON.stringify({
@@ -166,6 +188,11 @@ export default function Analytics() {
     };
 
     if (loading) return <div className="flex h-64 items-center justify-center text-gray-500">Loading analytics...</div>;
+    // ... rest of the component remains the same
+
+    // ...
+    // (return statement for the main UI remains here)
+    // ...
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto pb-10">
