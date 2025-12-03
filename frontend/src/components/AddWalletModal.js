@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 
 const BASE_URL = process.env.REACT_APP_API_URL;
 
@@ -21,27 +21,66 @@ export default function AddWalletModal({ isOpen, onClose, onSuccess }) {
     const [type, setType] = useState('bank');
     const [balance, setBalance] = useState('');
     const [purpose, setPurpose] = useState('');
+    const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${BASE_URL}/dashboard/wallet`, {
+            const initialAmount = parseFloat(balance);
+
+            // 🟢 STEP 1: Create Wallet with 0 Balance first
+            // We do this so we can add the balance via a Transaction, making it appear in Analytics.
+            const walletRes = await fetch(`${BASE_URL}/dashboard/wallet`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": token },
-                body: JSON.stringify({ name, type, balance: parseFloat(balance), purpose })
+                body: JSON.stringify({
+                    name,
+                    type,
+                    balance: 0, // Start with 0
+                    purpose
+                })
             });
 
-            if(response.ok) {
-                alert("Wallet Added Successfully!");
-                if (onSuccess) onSuccess();
-                onClose();
-                setName(''); setBalance(''); setPurpose('');
-            } else {
-                const err = await response.json();
-                alert("Failed: " + (err.error || "Unknown error"));
+            if (!walletRes.ok) {
+                const err = await walletRes.json();
+                throw new Error(err.error || "Failed to create wallet");
             }
-        } catch(err) { console.error(err); }
+
+            const walletData = await walletRes.json();
+            // Adjust 'wallet_id' or 'id' based on what your specific backend returns
+            const newWalletId = walletData.wallet_id || walletData.id;
+
+            // 🟢 STEP 2: Create an "Initial Deposit" Transaction
+            // Only if the user entered a balance > 0
+            if (initialAmount > 0 && newWalletId) {
+                await fetch(`${BASE_URL}/dashboard/transaction`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": token },
+                    body: JSON.stringify({
+                        name: "Initial Deposit",
+                        amount: initialAmount,
+                        type: "income",
+                        date: new Date().toISOString().split('T')[0],
+                        wallet_id: newWalletId,
+                        category_id: null,
+                        description: `Initial balance for ${name}`
+                    })
+                });
+            }
+
+            alert("Wallet Added Successfully!");
+            if (onSuccess) onSuccess();
+            onClose();
+            setName(''); setBalance(''); setPurpose('');
+
+        } catch (err) {
+            console.error(err);
+            alert("Error: " + err.message);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -70,7 +109,9 @@ export default function AddWalletModal({ isOpen, onClose, onSuccess }) {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Purpose (Optional)</label>
                     <input type="text" value={purpose} onChange={(e) => setPurpose(e.target.value)} className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" placeholder="e.g. Daily Expenses" />
                 </div>
-                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg shadow-md transition">Create Wallet</button>
+                <button type="submit" disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg shadow-md transition flex items-center justify-center">
+                    {loading ? <Loader2 size={20} className="animate-spin" /> : "Create Wallet"}
+                </button>
             </form>
         </Modal>
     );

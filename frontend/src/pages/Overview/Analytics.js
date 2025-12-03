@@ -11,11 +11,10 @@ import {
 } from 'recharts';
 import { saveAs } from 'file-saver';
 import Papa from 'papaparse';
-import { Card, SectionHeader } from '../../components/DashboardUI'; // Ensure this path is correct
+import { Card, SectionHeader } from '../../components/DashboardUI';
 
 // 🟢 CRITICAL: Define the base API URL from the environment variable
 const BASE_URL = process.env.REACT_APP_API_URL;
-
 
 export default function Analytics() {
     const [transactions, setTransactions] = useState([]);
@@ -43,45 +42,47 @@ export default function Analytics() {
     }, []);
 
     const fetchData = async () => {
-        // 🟢 FIX 1: Check BASE_URL to prevent crashes
         if (!BASE_URL) {
-            console.error("Configuration Error: API URL is missing. Cannot fetch data.");
+            console.error("Configuration Error: API URL is missing.");
             setLoading(false);
             return;
         }
 
         try {
             const token = localStorage.getItem("token");
-            // 🟢 FIX 2: Use BASE_URL
-            const res = await fetch(`${BASE_URL}/dashboard/analytics`, {
-                headers: { Authorization: token }
-            });
 
-            if (res.ok) {
-                const data = await res.json();
-                setTransactions(data);
-                processData(data);
+            // 🟢 FIX: Fetch BOTH Transactions AND Wallets to reconcile balances
+            const [txRes, walletRes] = await Promise.all([
+                fetch(`${BASE_URL}/dashboard/analytics`, { headers: { Authorization: token } }),
+                fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } }) // Fetches wallets
+            ]);
+
+            if (txRes.ok && walletRes.ok) {
+                const txData = await txRes.json();
+                const walletData = await walletRes.json(); // Contains .wallets array
+
+                setTransactions(txData);
+                // 🟢 Pass both datasets to processing
+                processData(txData, walletData.wallets || []);
             } else {
-                console.error("Failed to fetch analytics data:", res.statusText);
+                console.error("Failed to fetch data");
             }
         } catch (e) {
-            console.error("Network or Processing Error:", e);
+            console.error("Network Error:", e);
         } finally {
             setLoading(false);
         }
     };
 
-    const processData = (data) => {
-        if (!data || data.length === 0) return;
-
+    const processData = (txData, wallets) => {
         let tIncome = 0;
         let tExpense = 0;
-        let largestExp = { name: '', amount: 0 };
+        let largestExp = { name: '-', amount: 0 };
         const months = {};
         const categories = {};
 
-        // 1. Loop through Transactions
-        data.forEach(tx => {
+        // 1. Calculate Transaction Flows
+        txData.forEach(tx => {
             const amount = parseFloat(tx.amount);
             const date = new Date(tx.transaction_date);
             const monthKey = `${date.toLocaleString('default', { month: 'short' })} ${date.getFullYear()}`;
@@ -106,22 +107,36 @@ export default function Analytics() {
             }
         });
 
-        // 2. Calculate Final Stats
-        const net = tIncome - tExpense;
-        const rate = tIncome > 0 ? (net / tIncome) * 100 : 0;
-        const dates = data.map(t => new Date(t.transaction_date).getTime());
+        // 🟢 2. SMART CORRECTION: Account for Initial Balances
+        // Actual Net Worth (Sum of all wallets in DB)
+        const actualNetWorth = wallets.reduce((sum, w) => sum + parseFloat(w.balance), 0);
+
+        // Calculated Net Savings from Transactions alone
+        const transactionNetSavings = tIncome - tExpense;
+
+        // The discrepancy is assumed to be "Initial Balance" (money that existed before tracking)
+        // If Actual > TransactionSavings, we add the diff to Income so the math works.
+        const initialBalanceAdjustment = Math.max(0, actualNetWorth - transactionNetSavings);
+
+        const adjustedTotalIncome = tIncome + initialBalanceAdjustment;
+        const adjustedNetSavings = adjustedTotalIncome - tExpense; // Should now equal actualNetWorth
+
+        // 3. Calculate Derived Stats
+        const rate = adjustedTotalIncome > 0 ? (adjustedNetSavings / adjustedTotalIncome) * 100 : 0;
+
+        const dates = txData.map(t => new Date(t.transaction_date).getTime());
         const daySpan = dates.length > 0
             ? Math.max(1, Math.ceil((Math.max(...dates) - Math.min(...dates)) / (1000 * 60 * 60 * 24)))
             : 1;
         const dailyAvg = tExpense / daySpan;
 
         setStats({
-            totalIncome: tIncome,
+            totalIncome: adjustedTotalIncome, // 🟢 Now includes initial balances
             totalExpense: tExpense,
-            netSavings: net,
+            netSavings: adjustedNetSavings,   // 🟢 Now matches your Wallet Balances
             savingsRate: rate,
             avgDailySpend: dailyAvg,
-            txCount: data.length,
+            txCount: txData.length,
             largestExpense: largestExp
         });
 
@@ -136,12 +151,7 @@ export default function Analytics() {
 
     // 🟢 AI RECOMMENDER
     const getRecommendations = async () => {
-        if (!BASE_URL) {
-            setAiRecommendations(["Error: API configuration missing."]);
-            setAnalyzing(false);
-            return;
-        }
-
+        if (!BASE_URL) return;
         setAnalyzing(true);
         try {
             const token = localStorage.getItem("token");
@@ -151,7 +161,6 @@ export default function Analytics() {
                 recent_trend: monthlyData.slice(-3)
             };
 
-            // 🟢 FIX 3: Use BASE_URL
             const res = await fetch(`${BASE_URL}/ai/chat`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": token },
@@ -182,8 +191,8 @@ export default function Analytics() {
 
     if (loading) return <div className="flex h-64 items-center justify-center text-gray-500">Loading analytics...</div>;
 
-    // 🟢 FIX 4: Conditional Rendering Check
-    const hasData = transactions.length > 0;
+    // Show empty state only if no wallets AND no transactions
+    const hasData = transactions.length > 0 || stats.netSavings > 0;
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto pb-10">
@@ -205,6 +214,8 @@ export default function Analytics() {
                         <div className="p-2 bg-green-100 text-green-600 rounded-lg"><TrendingUp size={20}/></div>
                     </div>
                     <h3 className="text-2xl font-bold text-gray-900 dark:text-white">₱{stats.totalIncome.toLocaleString()}</h3>
+                    {/* Added Tooltip-like text */}
+                    <p className="text-xs text-gray-400 mt-1">Includes Initial Balances</p>
                 </Card>
 
                 <Card className="border-l-4 border-l-red-500">
@@ -296,13 +307,13 @@ export default function Analytics() {
                     </Card>
                 </div>
 
-                {/* 🟢 4. CHARTS SECTION - CONDITIONAL RENDERING APPLIED */}
+                {/* 🟢 4. CHARTS SECTION */}
                 <div className="lg:col-span-2 space-y-6">
 
                     {!hasData ? (
                         <Card className="flex items-center justify-center h-96">
                             <p className="text-gray-500 dark:text-gray-400">
-                                No transaction data available to generate charts.
+                                No data available. Add a wallet or transaction to see charts.
                             </p>
                         </Card>
                     ) : (
