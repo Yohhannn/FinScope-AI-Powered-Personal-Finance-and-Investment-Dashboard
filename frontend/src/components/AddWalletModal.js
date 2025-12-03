@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 
+// 🚀 NEW: Define the base API URL from the environment variable
+const BASE_URL = process.env.REACT_APP_API_URL;
+
 const Modal = ({ isOpen, onClose, title, children }) => {
     if (!isOpen) return null;
     return (
@@ -24,9 +27,16 @@ export default function AddWalletModal({ isOpen, onClose, onSuccess }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (!BASE_URL) {
+            alert("API Configuration Error: BASE_URL is not set.");
+            return;
+        }
+
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch("http://localhost:5000/api/dashboard/wallet", {
+            // ✅ Use BASE_URL here for the POST request
+            const response = await fetch(`${BASE_URL}/dashboard/wallet`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": token },
                 body: JSON.stringify({
@@ -39,7 +49,7 @@ export default function AddWalletModal({ isOpen, onClose, onSuccess }) {
 
             if(response.ok) {
                 alert("Wallet Added Successfully!");
-                // 🟢 CALL SUCCESS FUNCTION INSTEAD OF RELOAD
+                // 🟢 CALL SUCCESS FUNCTION
                 if (onSuccess) onSuccess();
                 onClose();
                 // Reset form

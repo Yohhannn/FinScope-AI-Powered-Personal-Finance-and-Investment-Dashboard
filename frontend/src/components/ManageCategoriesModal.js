@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, Plus, AlertTriangle } from 'lucide-react';
 
+// 🚀 NEW: Define the base API URL from the environment variable
+const BASE_URL = process.env.REACT_APP_API_URL;
+
 export default function ManageCategoriesModal({ isOpen, onClose }) {
     const [categories, setCategories] = useState([]);
     const [newName, setNewName] = useState('');
@@ -8,9 +11,15 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
 
     // 1. Fetch Categories
     const fetchCats = async () => {
+        if (!BASE_URL) {
+            setError("API Configuration Error: BASE_URL is not set.");
+            return;
+        }
+
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch("http://localhost:5000/api/dashboard/categories", {
+            // ✅ Use BASE_URL here
+            const res = await fetch(`${BASE_URL}/dashboard/categories`, {
                 headers: { Authorization: token }
             });
             if(res.ok) setCategories(await res.json());
@@ -29,9 +38,16 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
         e.preventDefault();
         setError('');
         if(!newName) return;
+
+        if (!BASE_URL) {
+            setError("API Configuration Error: BASE_URL is not set.");
+            return;
+        }
+
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch("http://localhost:5000/api/dashboard/category", {
+            // ✅ Use BASE_URL here
+            const res = await fetch(`${BASE_URL}/dashboard/category`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: token },
                 body: JSON.stringify({ name: newName })
@@ -48,12 +64,18 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
 
     // 🟢 3. Delete Category (Updated Logic)
     const handleDelete = async (id) => {
-        if(!window.confirm("Delete this category?")) return;
+        if (!BASE_URL) {
+            alert("API Configuration Error: BASE_URL is not set.");
+            return;
+        }
+
+        if(!window.confirm("Delete this category? This cannot be undone and may affect associated budgets/transactions.")) return;
         setError(''); // Clear previous errors
 
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch(`http://localhost:5000/api/dashboard/category/${id}`, {
+            // ✅ Use BASE_URL here
+            const res = await fetch(`${BASE_URL}/dashboard/category/${id}`, {
                 method: "DELETE",
                 headers: { Authorization: token }
             });
@@ -63,7 +85,7 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
             } else {
                 // 🟢 SHOW ERROR if backend refuses (e.g., category in use)
                 const data = await res.json();
-                alert(data.error || "Could not delete category.");
+                alert(data.error || "Could not delete category. It may be in use by a budget or transaction.");
             }
         } catch(e) { console.error(e); }
     };

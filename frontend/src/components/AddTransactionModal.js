@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
+// 🚀 NEW: Define the base API URL from the environment variable
+const BASE_URL = process.env.REACT_APP_API_URL;
+
 const Modal = ({ isOpen, onClose, title, children }) => {
     if (!isOpen) return null;
     return (
@@ -36,12 +39,17 @@ export default function AddTransactionModal({ isOpen, onClose, onSuccess }) {
     useEffect(() => {
         if (isOpen) {
             const loadData = async () => {
+                if (!BASE_URL) {
+                    console.error("API Configuration Error: BASE_URL is not set.");
+                    return;
+                }
                 const token = localStorage.getItem("token");
                 try {
+                    // ✅ Use BASE_URL here for all data fetches
                     const [wRes, cRes, bRes] = await Promise.all([
-                        fetch("http://localhost:5000/api/dashboard", { headers: { Authorization: token } }),
-                        fetch("http://localhost:5000/api/dashboard/categories", { headers: { Authorization: token } }),
-                        fetch("http://localhost:5000/api/dashboard/budgets", { headers: { Authorization: token } })
+                        fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } }),
+                        fetch(`${BASE_URL}/dashboard/categories`, { headers: { Authorization: token } }),
+                        fetch(`${BASE_URL}/dashboard/budgets`, { headers: { Authorization: token } })
                     ]);
 
                     if (wRes.ok) {
@@ -68,9 +76,16 @@ export default function AddTransactionModal({ isOpen, onClose, onSuccess }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (!BASE_URL) {
+            alert("API Configuration Error: BASE_URL is not set.");
+            return;
+        }
+
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch("http://localhost:5000/api/dashboard/transaction", {
+            // ✅ Use BASE_URL here for the POST request
+            const response = await fetch(`${BASE_URL}/dashboard/transaction`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": token },
                 body: JSON.stringify({

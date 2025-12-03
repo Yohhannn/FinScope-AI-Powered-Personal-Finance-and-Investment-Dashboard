@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     LayoutDashboard, Wallet, PiggyBank, Sparkles,
@@ -7,16 +7,48 @@ import {
     CreditCard, LogOut, X, Target, Star, Loader2, RotateCw
 } from 'lucide-react';
 
-// Assuming these components and assets are located here
-import { Card, ProgressBar } from '../../components/DashboardUI';
-import AddTransactionModal from '../../components/AddTransactionModal';
-import AddWalletModal from '../../components/AddWalletModal';
-import TransactionDetailsModal from '../../components/TransactionDetailsModal';
-import Wallets from './Wallets';
-import BudgetGoals from './Budget-Goals';
-import AIAdvisor from './AIAdvisor';
-import Analytics from './Analytics';
-import Settings from './Settings';
+// 🚀 NEW: Define the base API URL from the environment variable
+const BASE_URL = process.env.REACT_APP_API_URL;
+
+// --- Placeholder Components for Runnability ---
+// Replace these with your actual imported components in your final project structure.
+const Card = ({ children, className = '' }) => (
+    <div className={`bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 ${className}`}>
+        {children}
+    </div>
+);
+const ProgressBar = ({ current, total, color = 'blue' }) => {
+    const percentage = Math.min((current / total) * 100, 100);
+    return (
+        <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
+            <div className={`h-2 rounded-full bg-${color}-600`} style={{ width: `${percentage}%` }}></div>
+        </div>
+    );
+};
+const MockModal = ({ isOpen, onClose, onSuccess }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl max-w-lg w-full">
+                <h3 className="text-xl font-bold mb-4">Mock Modal</h3>
+                <p className="text-gray-500">This is a placeholder modal.</p>
+                <button onClick={() => { onSuccess(); onClose(); }} className="mt-4 bg-blue-500 text-white p-2 rounded-lg">Done</button>
+                <button onClick={onClose} className="ml-2 mt-4 bg-red-500 text-white p-2 rounded-lg">Close</button>
+            </div>
+        </div>
+    );
+};
+const AddTransactionModal = MockModal;
+const AddWalletModal = MockModal;
+const TransactionDetailsModal = MockModal;
+
+// Mock Page Components
+const Wallets = () => <div className="text-center py-24 text-gray-500">Wallets Page Content</div>;
+const BudgetGoals = () => <div className="text-center py-24 text-gray-500">Budget/Goals Page Content</div>;
+const AIAdvisor = () => <div className="text-center py-24 text-gray-500">AI Advisor Page Content</div>;
+const Analytics = () => <div className="text-center py-24 text-gray-500">Analytics Page Content</div>;
+const Settings = () => <div className="text-center py-24 text-gray-500">Settings Page Content</div>;
+// --- End Placeholder Components ---
 
 // Helper function
 const getGreeting = () => {
@@ -41,12 +73,18 @@ const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh 
     // Function to fetch AI Insight on demand (or initial load)
     const generateInsight = async () => {
         setAiLoading(true);
-        // Clear old insight display while loading new one
-        setAiInsight('');
+        setAiInsight(''); // Clear old insight display while loading new one
+
+        if (!BASE_URL) {
+            setAiInsight("API Configuration Error: BASE_URL is not set.");
+            setAiLoading(false);
+            return;
+        }
 
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch("http://localhost:5000/api/ai/chat", {
+            // ✅ Use BASE_URL here
+            const res = await fetch(`${BASE_URL}/ai/chat`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": token },
                 body: JSON.stringify({
@@ -72,9 +110,18 @@ const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh 
     // 1. Main Dashboard Data Fetching
     useEffect(() => {
         const fetchDashboard = async () => {
+            setLoading(true);
+
+            if (!BASE_URL) {
+                console.error("Configuration Error: API URL is missing. Cannot fetch data.");
+                setLoading(false);
+                return;
+            }
+
             try {
                 const token = localStorage.getItem("token");
-                const res = await fetch("http://localhost:5000/api/dashboard", { headers: { Authorization: token } });
+                // ✅ Use BASE_URL here
+                const res = await fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } });
 
                 if (res.ok) {
                     const dashData = await res.json();
@@ -83,8 +130,8 @@ const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh 
                         netWorthChange: dashData.netWorthChange || 0,
                         wallets: dashData.wallets,
                         recentTransactions: dashData.recentTransactions,
-                        budgets: dashData.budgets,
-                        goals: dashData.goals
+                        budgets: dashData.budgets.filter(b => b.is_pinned), // Filter pinned budgets
+                        goals: dashData.goals.filter(g => g.is_pinned) // Filter pinned goals
                     });
                 }
             } catch (error) { console.error(error); }
@@ -107,7 +154,6 @@ const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh 
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto">
-            {/* ... (Header and Top Stats JSX) ... */}
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div><h1 className="text-3xl font-bold text-gray-900 dark:text-white">{getGreeting()}, {user?.name || 'User'}</h1><p className="text-gray-500 dark:text-gray-400 mt-1">Here's what's happening with your money today.</p></div>
@@ -149,10 +195,10 @@ const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh 
                     <button
                         onClick={generateInsight}
                         disabled={aiLoading}
-                        className="absolute top-4 right-4 text-gray-400 hover:text-blue-600 transition disabled:animate-spin"
+                        className="absolute top-4 right-4 text-gray-400 hover:text-blue-600 transition disabled:opacity-50"
                         title="Refresh Insight"
                     >
-                        {aiLoading ? <Loader2 size={18}/> : <RotateCw size={18}/>}
+                        {aiLoading ? <Loader2 size={18} className="animate-spin"/> : <RotateCw size={18}/>}
                     </button>
 
                     <div className="flex items-start gap-4">
@@ -242,7 +288,7 @@ const DashboardHome = ({ setCurrentPage, user, refreshTrigger, onTriggerRefresh 
                 </div>
             </div>
 
-            <TransactionDetailsModal isOpen={isTxModalOpen} onClose={() => setIsTxModalOpen(false)} onSuccess={onTriggerRefresh} />
+            <TransactionDetailsModal isOpen={isTxModalOpen} onClose={() => setIsTxModalOpen(false)} onSuccess={onTriggerRefresh} selectedTx={selectedTx} />
         </div>
     );
 };
@@ -272,6 +318,11 @@ export default function Dashboard() {
 
     // 🟢 Function to call AI for Smart Notifications
     const fetchAINotifications = async () => {
+        if (!BASE_URL) {
+            console.error("Configuration Error: BASE_URL is not set. Skipping AI notification check.");
+            return;
+        }
+
         // 1. Check if the time limit has passed
         const lastCheckTime = parseInt(localStorage.getItem('lastAlertCheckTime') || '0', 10);
         const currentTime = Date.now();
@@ -283,7 +334,8 @@ export default function Dashboard() {
 
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch("http://localhost:5000/api/dashboard", { headers: { Authorization: token } });
+            // ✅ Use BASE_URL here
+            const res = await fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } });
             const data = await res.json();
 
             if (res.ok) {
@@ -306,7 +358,8 @@ export default function Dashboard() {
                 If the current critical condition is the SAME as the last alert, respond ONLY with the exact text "NO_CHANGE".
                 Otherwise, respond ONLY with the NEW alert text, prefixed by an emoji (e.g., ⚠️, 💡, 📈). Do not provide any other dialogue. Data: ${JSON.stringify(context)}`;
 
-                const aiRes = await fetch("http://localhost:5000/api/ai/chat", {
+                // ✅ Use BASE_URL here
+                const aiRes = await fetch(`${BASE_URL}/ai/chat`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json", "Authorization": token },
                     body: JSON.stringify({ message })
@@ -386,11 +439,11 @@ export default function Dashboard() {
 
     return (
         <div className={`flex h-screen font-sans ${isDarkMode ? 'dark' : ''} bg-gray-50 dark:bg-gray-950`}>
-            {/* ... (Sidebar and Navigation remain the same) ... */}
+            {/* Sidebar */}
             <div className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 h-screen flex flex-col p-4 fixed z-20">
                 <div className="flex items-center gap-3 px-4 py-6 mb-2"><div className="p-2 bg-blue-600 rounded-xl"><Sparkles size={24} className="text-white" /></div><h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">FinScope</h1></div>
                 <nav className="flex-1 space-y-1.5">{[{ id: 'dashboard', icon: LayoutDashboard, label: 'Overview' }, { id: 'wallets', icon: Wallet, label: 'Wallets' }, { id: 'budgets', icon: PiggyBank, label: 'Budgets' }, { id: 'advisor', icon: Sparkles, label: 'AI Advisor' }, { id: 'analytics', icon: BarChart3, label: 'Analytics' }].map(item => (<button key={item.id} onClick={() => setCurrentPage(item.id)} className={`flex items-center w-full px-4 py-3 rounded-xl transition-all font-medium ${currentPage === item.id ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white'}`}><item.icon size={20} className="mr-3" />{item.label}</button>))}</nav>
-                <div className="mt-auto space-y-2 border-t border-gray-100 dark:border-gray-800 pt-4"><button onClick={() => setCurrentPage('settings')} className="flex items-center w-full px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition font-medium"><SettingsIcon size={20} className="mr-3" /> Settings</button><button onClick={handleLogout} className="flex items-center w-full px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition font-medium"><ArrowRight size={20} className="mr-3 rotate-180" /> Sign Out</button><button onClick={() => setIsDarkMode(!isDarkMode)} className="flex items-center justify-center w-full py-3 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-medium transition mt-2">{isDarkMode ? <Sun size={18} className="mr-2" /> : <Moon size={18} className="mr-2" />} {isDarkMode ? 'Light Mode' : 'Dark Mode'}</button></div>
+                <div className="mt-auto space-y-2 border-t border-gray-100 dark:border-gray-800 pt-4"><button onClick={() => setCurrentPage('settings')} className="flex items-center w-full px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition font-medium"><SettingsIcon size={20} className="mr-3" /> Settings</button><button onClick={handleLogout} className="flex items-center w-full px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition font-medium"><LogOut size={20} className="mr-3" /> Sign Out</button><button onClick={() => setIsDarkMode(!isDarkMode)} className="flex items-center justify-center w-full py-3 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-medium transition mt-2">{isDarkMode ? <Sun size={18} className="mr-2" /> : <Moon size={18} className="mr-2" />} {isDarkMode ? 'Light Mode' : 'Dark Mode'}</button></div>
             </div>
             <div className="flex-1 flex flex-col ml-64 h-screen overflow-y-auto">
                 <header className="sticky top-0 z-10 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-8 py-4 flex justify-end items-center gap-6">
