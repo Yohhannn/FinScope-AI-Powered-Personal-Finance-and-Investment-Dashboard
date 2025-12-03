@@ -1,18 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Download, TrendingUp, TrendingDown, DollarSign, Percent,
+    TrendingUp, TrendingDown, Percent,
     Sparkles, Loader2, FileSpreadsheet, Activity,
-    Calendar, AlertCircle, Wallet
+    Wallet
 } from 'lucide-react';
 import {
-    LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-    XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+    BarChart, Bar, Cell,
+    XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
     AreaChart, Area
 } from 'recharts';
 import { saveAs } from 'file-saver';
 import Papa from 'papaparse';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import { Card, SectionHeader } from '../../components/DashboardUI';
 
 export default function Analytics() {
@@ -102,7 +100,7 @@ export default function Analytics() {
         const net = tIncome - tExpense;
         const rate = tIncome > 0 ? (net / tIncome) * 100 : 0;
 
-        // Approx days span (Difference between first and last transaction)
+        // Approx days span
         const dates = data.map(t => new Date(t.transaction_date).getTime());
         const daySpan = dates.length > 0
             ? Math.max(1, Math.ceil((Math.max(...dates) - Math.min(...dates)) / (1000 * 60 * 60 * 24)))
@@ -133,30 +131,26 @@ export default function Analytics() {
         setAnalyzing(true);
         try {
             const token = localStorage.getItem("token");
-
-            // We send the CALCULATED STATS, not just raw rows. It's cheaper and faster for AI.
             const promptData = {
                 metrics: stats,
                 top_spending_category: categoryData.length > 0 ? categoryData[0].name : "None",
-                recent_trend: monthlyData.slice(-3) // Last 3 months
+                recent_trend: monthlyData.slice(-3)
             };
 
             const res = await fetch("http://localhost:5000/api/ai/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": token },
                 body: JSON.stringify({
-                    message: `Based on these financial stats, give me exactly 3 short, punchy, actionable recommendations in a JSON array format (e.g. ["Tip 1", "Tip 2", "Tip 3"]). Do not say anything else. Data: ${JSON.stringify(promptData)}`
+                    message: `Based on these financial stats (in PHP/Peso), give me exactly 3 short, punchy, actionable recommendations in a JSON array format. Data: ${JSON.stringify(promptData)}`
                 })
             });
 
             const data = await res.json();
             if (res.ok) {
-                // Try to parse the array, if AI chats normally, handle it too
                 try {
                     const parsed = JSON.parse(data.reply);
                     setAiRecommendations(Array.isArray(parsed) ? parsed : [data.reply]);
                 } catch (e) {
-                    // Fallback if AI talks instead of returning JSON
                     setAiRecommendations(data.reply.split('\n').filter(line => line.length > 10).slice(0,3));
                 }
             }
@@ -164,6 +158,7 @@ export default function Analytics() {
         finally { setAnalyzing(false); }
     };
 
+    // 🟢 CSV EXPORT
     const exportCSV = () => {
         const csv = Papa.unparse(transactions);
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -177,8 +172,9 @@ export default function Analytics() {
             <SectionHeader
                 title="Analytics Overview"
                 actions={
-                    <button onClick={exportCSV} className="flex items-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 font-medium py-2 px-4 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition shadow-sm">
-                        <FileSpreadsheet size={18} className="mr-2 text-green-600" /> Export Data
+                    <button onClick={exportCSV} className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 font-medium py-2 px-4 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition shadow-sm text-sm">
+                        <FileSpreadsheet size={16} className="text-green-600" />
+                        <span>Export CSV</span>
                     </button>
                 }
             />
@@ -190,7 +186,8 @@ export default function Analytics() {
                         <span className="text-gray-500 text-sm font-medium">Total Income</span>
                         <div className="p-2 bg-green-100 text-green-600 rounded-lg"><TrendingUp size={20}/></div>
                     </div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">${stats.totalIncome.toLocaleString()}</h3>
+                    {/* PHP Symbol Added */}
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">₱{stats.totalIncome.toLocaleString()}</h3>
                 </Card>
 
                 <Card className="border-l-4 border-l-red-500">
@@ -198,7 +195,8 @@ export default function Analytics() {
                         <span className="text-gray-500 text-sm font-medium">Total Expenses</span>
                         <div className="p-2 bg-red-100 text-red-600 rounded-lg"><TrendingDown size={20}/></div>
                     </div>
-                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">${stats.totalExpense.toLocaleString()}</h3>
+                    {/* PHP Symbol Added */}
+                    <h3 className="text-2xl font-bold text-gray-900 dark:text-white">₱{stats.totalExpense.toLocaleString()}</h3>
                 </Card>
 
                 <Card className="border-l-4 border-l-blue-500">
@@ -206,8 +204,9 @@ export default function Analytics() {
                         <span className="text-gray-500 text-sm font-medium">Net Savings</span>
                         <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><Wallet size={20}/></div>
                     </div>
+                    {/* PHP Symbol Added */}
                     <h3 className={`text-2xl font-bold ${stats.netSavings >= 0 ? 'text-blue-600' : 'text-red-500'}`}>
-                        ${stats.netSavings.toLocaleString()}
+                        ₱{stats.netSavings.toLocaleString()}
                     </h3>
                 </Card>
 
@@ -224,7 +223,6 @@ export default function Analytics() {
 
                 {/* 🟢 2. DETAILED STATS SIDEBAR */}
                 <div className="space-y-6">
-                    {/* Extra Stats Card */}
                     <Card>
                         <h4 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                             <Activity size={18} className="text-orange-500"/> Activity Metrics
@@ -232,7 +230,8 @@ export default function Analytics() {
                         <div className="space-y-4">
                             <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
                                 <span className="text-sm text-gray-500">Avg Daily Spend</span>
-                                <span className="font-bold text-gray-900 dark:text-white">${stats.avgDailySpend.toFixed(2)}</span>
+                                {/* PHP Symbol Added */}
+                                <span className="font-bold text-gray-900 dark:text-white">₱{stats.avgDailySpend.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
                                 <span className="text-sm text-gray-500">Transactions</span>
@@ -242,13 +241,14 @@ export default function Analytics() {
                                 <span className="text-xs text-red-500 uppercase font-bold">Largest Expense</span>
                                 <div className="flex justify-between items-center mt-1">
                                     <span className="font-medium text-gray-900 dark:text-white truncate max-w-[120px]">{stats.largestExpense.name}</span>
-                                    <span className="font-bold text-red-600">${stats.largestExpense.amount.toLocaleString()}</span>
+                                    {/* PHP Symbol Added */}
+                                    <span className="font-bold text-red-600">₱{stats.largestExpense.amount.toLocaleString()}</span>
                                 </div>
                             </div>
                         </div>
                     </Card>
 
-                    {/* 🟢 3. AI RECOMMENDER (Small Couple AI) */}
+                    {/* 🟢 3. AI RECOMMENDER */}
                     <Card className="bg-gradient-to-br from-indigo-600 to-violet-700 text-white border-none relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-3 opacity-10"><Sparkles size={80} /></div>
 
@@ -285,8 +285,9 @@ export default function Analytics() {
 
                 {/* 🟢 4. CHARTS SECTION */}
                 <div className="lg:col-span-2 space-y-6">
+                    {/* Trend / Cashflow Chart */}
                     <Card>
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Cash Flow</h3>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Cash Flow & Trends</h3>
                         <div className="h-72">
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={monthlyData}>
@@ -302,14 +303,16 @@ export default function Analytics() {
                                     </defs>
                                     <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
                                     <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                                    <Tooltip />
-                                    <Area type="monotone" dataKey="income" stroke="#10B981" fillOpacity={1} fill="url(#colorIn)" />
-                                    <Area type="monotone" dataKey="expense" stroke="#EF4444" fillOpacity={1} fill="url(#colorOut)" />
+                                    <Tooltip formatter={(value) => `₱${value.toLocaleString()}`} />
+                                    <Legend />
+                                    <Area type="monotone" name="Income" dataKey="income" stroke="#10B981" fillOpacity={1} fill="url(#colorIn)" />
+                                    <Area type="monotone" name="Expenses" dataKey="expense" stroke="#EF4444" fillOpacity={1} fill="url(#colorOut)" />
                                 </AreaChart>
                             </ResponsiveContainer>
                         </div>
                     </Card>
 
+                    {/* Top Spending Categories */}
                     <Card>
                         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Top Spending Categories</h3>
                         <div className="h-64">
@@ -317,7 +320,7 @@ export default function Analytics() {
                                 <BarChart data={categoryData.slice(0, 5)} layout="vertical">
                                     <XAxis type="number" hide />
                                     <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 12}} />
-                                    <Tooltip />
+                                    <Tooltip formatter={(value) => `₱${value.toLocaleString()}`} />
                                     <Bar dataKey="value" fill="#8884d8" radius={[0, 4, 4, 0]}>
                                         {categoryData.map((entry, index) => (
                                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
