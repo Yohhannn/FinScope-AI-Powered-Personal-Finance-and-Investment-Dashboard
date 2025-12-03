@@ -1,52 +1,49 @@
-var createError = require('http-errors');
-var express = require('express');
-var path = require('path');
-var cookieParser = require('cookie-parser');
-var logger = require('morgan');
+// --- src/app.js (Revised) ---
+const express = require("express");
+const cors = require("cors");
+const path = require("path"); // 🟢 CRITICAL: Import path module
+const db = require("./config/db");
+require("dotenv").config();
 
-require('dotenv').config();
-var cors = require('cors');
-const db = require('./config/db'); // Import the entire db module
+// Import Routes
+const authRoutes = require("./routes/authRoutes");
+const aiRoutes = require("./routes/aiRoutes");
 
-var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
+const app = express();
 
-var app = express();
-
-// --- 2. CONNECT TO DATABASE ---
-// We call the test function we created in db.js
-db.connectDB();
-
-// view engine setup
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'jade');
-
-// --- 3. MIDDLEWARE ---
+// Middleware
 app.use(cors());
-app.use(logger('dev'));
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
 
-// --- ROUTES ---
-app.use('/', indexRouter);
-app.use('/users', usersRouter);
+// --- API ROUTES MUST COME FIRST ---
+app.use("/api/auth", authRoutes);
+app.use("/api/dashboard", require("./routes/dashboardRoutes"));
+app.use("/api/ai", aiRoutes);
 
-// catch 404 and forward to error handler
-app.use(function(req, res, next) {
-    next(createError(404));
+// ----------------------------------------------------------------------
+// 🟢 CRITICAL FIX: SERVE FRONTEND STATIC FILES AND HANDLE ROUTING FALLBACK
+// ----------------------------------------------------------------------
+
+// Assume React build directory is 'client/build' relative to app.js
+const FRONTEND_BUILD_PATH = path.join(__dirname, 'client/build');
+
+// 1. Serve static files (Allows CSS/JS/images to load)
+app.use(express.static(FRONTEND_BUILD_PATH));
+
+// 2. Catch-all route for client-side routing (Handles /wallets, /budgets, etc.)
+// MUST be the final route defined!
+app.get('*', (req, res) => {
+    // Note: The path here must match the static path + index.html
+    res.sendFile(path.join(FRONTEND_BUILD_PATH, 'index.html'));
 });
 
-// error handler
-app.use(function(err, req, res, next) {
-    // set locals, only providing error in development
-    res.locals.message = err.message;
-    res.locals.error = req.app.get('env') === 'development' ? err : {};
+// ----------------------------------------------------------------------
 
-    // render the error page
-    res.status(err.status || 500);
-    res.render('error');
+const PORT = process.env.PORT || 5000;
+
+// Connect DB and Start Server
+db.connectDB().then(() => {
+    app.listen(PORT, () => {
+        console.log(`🚀 Server running on port ${PORT}`);
+    });
 });
-
-module.exports = app;
