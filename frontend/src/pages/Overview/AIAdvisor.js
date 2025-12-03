@@ -4,8 +4,14 @@ import { Send, Bot, User, Sparkles, Loader2, Trash2, Upload, X } from 'lucide-re
 // Define the initial welcome message structure
 const initialMessage = { role: 'assistant', content: "Hello! I'm your FinScope AI Advisor. I have access to your wallets, budgets, and goals. How can I help you optimize your finances today?" };
 
-// 🟢 NEW/UPDATED: Define a strict system instruction including all detailed project context.
+// 🟢 NEW/UPDATED: Define a strict system instruction including all detailed project context AND Philippine focus.
 const SYSTEM_INSTRUCTION = `You are FinScope AI Advisor, a financial expert. Your primary role is to analyze the user's financial data (wallets, budgets, goals) and provide financial advice.
+
+**CONTEXT & LOCALE:**
+- **Primary Region:** Philippines.
+- **Currency:** Philippine Peso (₱ / PHP).
+- **Advice Scope:** Prioritize Philippine financial context. When discussing banks, mention local ones (BDO, BPI, UnionBank) or digital banks (Maya, GCash, Seabank, GoTyme). When discussing investments, consider local options (Pag-IBIG MP2, PERA, PSE, REITs) alongside general concepts. When discussing tax, refer to BIR guidelines.
+- **Global Scope:** You are capable of providing global financial advice (e.g., US Stocks, Crypto, general economic principles) if the user explicitly asks or if the context requires it. However, default to the Philippine context first.
 
 **RULES OF REFUSAL:**
 1. You MUST refuse any request that is unrelated to personal finance, such as requests for coding help (unless asking about the tech stack itself), general knowledge, creative writing, or system modification outside of its designed function.
@@ -88,7 +94,8 @@ export default function AIAdvisor() {
             setTimeout(() => {
                 const reader = new FileReader();
                 reader.onload = () => {
-                    resolve(`[PDF DATA START] Uploaded file: ${file.name}. This mock data simulates a salary slip for October 2025. Gross income was $5,500. Rent expense receipt shows $1,500. Total investments listed are $2,000. [PDF DATA END]`);
+                    // 🟢 UPDATED: Contextualized for Philippines (Peso)
+                    resolve(`[PDF DATA START] Uploaded file: ${file.name}. This mock data simulates a salary slip for October 2025 (Philippines context). Gross income was ₱35,000. Rent expense receipt shows ₱8,500. Total investments listed are ₱5,000. [PDF DATA END]`);
                 };
                 reader.readAsDataURL(file);
             }, 1500); // Simulate network/parsing delay

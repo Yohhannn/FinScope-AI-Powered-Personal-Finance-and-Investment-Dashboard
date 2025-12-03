@@ -47,13 +47,12 @@ export default function BudgetGoals({ setCurrentPage }) {
 
 
     // 🟢 Function to call AI for Budget/Goal Summary
-    // This function will now accept optional data (for manual refresh)
     const generateBudgetInsight = async (budgetData, goalData) => {
         setAiLoading(true);
         // Clear previous insight while fetching
         setAiBudgetInsight('');
 
-        // Use current state data if no new data is provided (e.g., when clicking refresh button)
+        // Use current state data if no new data is provided
         const currentBudgets = budgetData || budgets;
         const currentGoals = goalData || goals;
 
@@ -74,7 +73,8 @@ export default function BudgetGoals({ setCurrentPage }) {
                 }))
             };
 
-            const message = `Analyze this list of current budgets and savings goals. Highlight any budget that is over 80% used and any goal that is significantly behind schedule (under 30% complete). Provide 1 actionable recommendation. Data: ${JSON.stringify(context)}`;
+            // Added "in Philippine Peso" to the prompt
+            const message = `Analyze this list of current budgets and savings goals (in Philippine Peso). Highlight any budget that is over 80% used and any goal that is significantly behind schedule (under 30% complete). Provide 1 actionable recommendation. Data: ${JSON.stringify(context)}`;
 
             const res = await fetch("http://localhost:5000/api/ai/chat", {
                 method: "POST",
@@ -118,8 +118,6 @@ export default function BudgetGoals({ setCurrentPage }) {
                 fetchedGoals = budgetData.goals;
                 setBudgets(fetchedBudgets);
                 setGoals(fetchedGoals);
-
-                // 🔴 REMOVED: generateBudgetInsight is removed from here to stop auto-refresh.
             }
 
             if (dashRes.ok) {
@@ -135,9 +133,7 @@ export default function BudgetGoals({ setCurrentPage }) {
 
     // 2. Initial AI Insight Load (Runs only once on mount IF localStorage is empty)
     useEffect(() => {
-        // Only run if aiBudgetInsight state (loaded from localStorage) is empty
         if (!aiBudgetInsight) {
-            // Need a quick local data fetch to generate the first insight accurately
             const fetchInitialDataAndGenerateInsight = async () => {
                 try {
                     const token = localStorage.getItem("token");
@@ -152,7 +148,7 @@ export default function BudgetGoals({ setCurrentPage }) {
             }
             fetchInitialDataAndGenerateInsight();
         }
-    }, []); // Empty dependency array ensures it runs only once
+    }, []);
 
     const togglePin = async (type, id, currentStatus) => {
         const url = type === 'budget'
@@ -263,8 +259,10 @@ export default function BudgetGoals({ setCurrentPage }) {
                                 <div>
                                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 capitalize">{wallet.type}</p>
                                     <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">{wallet.name}</h3>
-                                    <p className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">${Number(wallet.available_balance ?? wallet.balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-                                    <p className="text-xs text-gray-400 mt-1">of ${Number(wallet.balance).toLocaleString()} Total</p>
+                                    {/* 🟢 Replaced $ with ₱ */}
+                                    <p className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">₱{Number(wallet.available_balance ?? wallet.balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                                    {/* 🟢 Replaced $ with ₱ */}
+                                    <p className="text-xs text-gray-400 mt-1">of ₱{Number(wallet.balance).toLocaleString()} Total</p>
                                 </div>
                             </div>
                         );
@@ -302,13 +300,15 @@ export default function BudgetGoals({ setCurrentPage }) {
                                         <h4 className="text-lg font-bold text-gray-900 dark:text-white">{budget.category_name}</h4>
                                         {budget.is_pinned && <Star size={14} className="text-yellow-500 absolute top-6 right-16 sm:right-20" fill="currentColor" />}
                                     </div>
-                                    <p className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">${spent.toLocaleString()}<span className="text-base font-medium text-gray-400 dark:text-gray-500"> / ${limit.toLocaleString()}</span></p>
+                                    {/* 🟢 Replaced $ with ₱ */}
+                                    <p className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">₱{spent.toLocaleString()}<span className="text-base font-medium text-gray-400 dark:text-gray-500"> / ₱{limit.toLocaleString()}</span></p>
                                 </div>
                                 <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3 mb-2 overflow-hidden">
                                     <div className={`h-3 rounded-full transition-all duration-500 ${isOver ? 'bg-red-500' : 'bg-blue-600'}`} style={{ width: `${percentage}%` }}></div>
                                 </div>
                                 <div className="flex justify-between items-center text-xs font-medium">
-                                    <span className={`${isOver ? 'text-red-500' : 'text-green-500'}`}>{isOver ? `Over by $${(spent - limit).toLocaleString()}` : `$${(limit - spent).toLocaleString()} remaining`}</span>
+                                    {/* 🟢 Replaced $ with ₱ */}
+                                    <span className={`${isOver ? 'text-red-500' : 'text-green-500'}`}>{isOver ? `Over by ₱${(spent - limit).toLocaleString()}` : `₱${(limit - spent).toLocaleString()} remaining`}</span>
                                     <span className="text-gray-400">{(percentage).toFixed(0)}%</span>
                                 </div>
                             </div>
@@ -346,7 +346,8 @@ export default function BudgetGoals({ setCurrentPage }) {
                                         <h4 className="text-lg font-bold text-gray-900 dark:text-white">{goal.name}</h4>
                                         {goal.is_pinned && <Star size={14} className="text-yellow-500 absolute top-6 right-16 sm:right-20" fill="currentColor" />}
                                     </div>
-                                    <p className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">${current.toLocaleString()}<span className="text-base font-medium text-gray-400 dark:text-gray-500"> / ${target.toLocaleString()}</span></p>
+                                    {/* 🟢 Replaced $ with ₱ */}
+                                    <p className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">₱{current.toLocaleString()}<span className="text-base font-medium text-gray-400 dark:text-gray-500"> / ₱{target.toLocaleString()}</span></p>
                                 </div>
                                 <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3 mb-4 overflow-hidden">
                                     <div className="bg-green-500 h-3 rounded-full transition-all duration-500" style={{ width: `${percentage}%` }}></div>
@@ -386,7 +387,6 @@ export default function BudgetGoals({ setCurrentPage }) {
                 onRefresh={fetchAllData}
             />
 
-            {/* 🟢 NEW Budget History Modal */}
             <BudgetHistoryModal
                 isOpen={budgetHistoryOpen}
                 onClose={() => setBudgetHistoryOpen(false)}
