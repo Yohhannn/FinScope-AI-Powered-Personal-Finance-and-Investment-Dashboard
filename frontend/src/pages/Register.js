@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+// 🚀 Use the environment variable for the base API URL
+const BASE_URL = process.env.REACT_APP_API_URL;
+
 // --- Integrated Dummy AuthLayout Component ---
 // Modified for the split-screen design: flex row
 function AuthLayout({ children }) {
@@ -11,23 +14,24 @@ function AuthLayout({ children }) {
     );
 }
 
-// Icon Components (to avoid external imports, used for the left panel design)
+// Icon Components (to avoid external imports)
 const Zap = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
 );
 const Wallet = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M5 9h14"/></svg>
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M5 9h14"/></svg>
 );
 const TrendingUp = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
 );
 const ShieldCheck = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
 );
 
 export default function Register() {
     const navigate = useNavigate();
     const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false); // Manages loading state for UX
     const [form, setForm] = useState({
         name: "",
         email: "",
@@ -41,15 +45,24 @@ export default function Register() {
         e.preventDefault();
         setError("");
 
-        // 1. Validation: Check passwords match
-        if (form.password !== form.confirm) {
-            setError("Passwords do not match");
+        // ⚠️ Configuration check
+        if (!BASE_URL) {
+            setError("Configuration Error: API URL is missing. Check REACT_APP_API_URL.");
+            console.error("REACT_APP_API_URL is not defined.");
             return;
         }
 
+        // 1. Validation: Check passwords match
+        if (form.password !== form.confirm) {
+            setError("Passwords do not match.");
+            return;
+        }
+
+        setLoading(true); // Start loading
+
         try {
-            // 🟢 URL restored to hardcoded value as per request
-            const response = await fetch("http://localhost:5000/api/auth/register", {
+            // ✅ Use the environment variable here
+            const response = await fetch(`${BASE_URL}/auth/register`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -59,19 +72,28 @@ export default function Register() {
                 }),
             });
 
+            // Check if the response is JSON (important for handling 404/500 errors)
+            const contentType = response.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                throw new Error("Received non-JSON response. Server issue or incorrect endpoint.");
+            }
+
             const data = await response.json();
 
             if (response.ok) {
-                // Success: Redirect to Login so they can sign in
-                alert("Account created! Please log in.");
+                // Success: Alert should be replaced with a UI modal/message box
+                alert("Account created successfully! Please log in.");
                 navigate("/login");
             } else {
-                // Fail: Show error from backend
-                setError(data.error || "Registration failed");
+                // Fail (e.g., user already exists)
+                setError(data.error || "Registration failed. Please check your details.");
             }
         } catch (err) {
             console.error("Connection Error:", err);
-            setError("Server is not responding. Please try again later.");
+            // Catch network errors (like server down or CORS issues)
+            setError(`Cannot connect to server: ${err.message || "Please check network and API URL."}`);
+        } finally {
+            setLoading(false); // Stop loading regardless of success/fail
         }
     };
 
@@ -134,7 +156,7 @@ export default function Register() {
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Full Name */}
+                        {/* Name */}
                         <div>
                             <label className="block text-xs font-medium mb-1 text-gray-400">Full Name</label>
                             <input
@@ -142,10 +164,11 @@ export default function Register() {
                                 className="w-full p-3 rounded-lg bg-[#313337] border border-[#313337] focus:border-blue-500 focus:ring-1 ring-blue-500 outline-none transition duration-200 text-sm"
                                 value={form.name}
                                 onChange={(e) => update("name", e.target.value)}
+                                disabled={loading}
                             />
                         </div>
 
-                        {/* Email Address */}
+                        {/* Email */}
                         <div>
                             <label className="block text-xs font-medium mb-1 text-gray-400">Email Address</label>
                             <input
@@ -154,6 +177,7 @@ export default function Register() {
                                 className="w-full p-3 rounded-lg bg-[#313337] border border-[#313337] focus:border-blue-500 focus:ring-1 ring-blue-500 outline-none transition duration-200 text-sm"
                                 value={form.email}
                                 onChange={(e) => update("email", e.target.value)}
+                                disabled={loading}
                             />
                         </div>
 
@@ -166,6 +190,7 @@ export default function Register() {
                                 className="w-full p-3 rounded-lg bg-[#313337] border border-[#313337] focus:border-blue-500 focus:ring-1 ring-blue-500 outline-none transition duration-200 text-sm"
                                 value={form.password}
                                 onChange={(e) => update("password", e.target.value)}
+                                disabled={loading}
                             />
                         </div>
 
@@ -178,14 +203,16 @@ export default function Register() {
                                 className="w-full p-3 rounded-lg bg-[#313337] border border-[#313337] focus:border-blue-500 focus:ring-1 ring-blue-500 outline-none transition duration-200 text-sm"
                                 value={form.confirm}
                                 onChange={(e) => update("confirm", e.target.value)}
+                                disabled={loading}
                             />
                         </div>
 
                         <button
                             type="submit"
-                            className="w-full p-3 mt-4 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-white transition duration-200 text-sm shadow-md shadow-blue-900/50"
+                            className="w-full p-3 mt-4 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-white transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm shadow-md shadow-blue-900/50"
+                            disabled={loading}
                         >
-                            Create account →
+                            {loading ? "Creating account..." : "Create account →"}
                         </button>
                     </form>
 

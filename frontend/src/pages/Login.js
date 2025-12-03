@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+// Note: For the icons, we'll use inline SVG from Lucide React's style,
+// which is commonly available in modern React environments.
+
+// 🚀 Use the environment variable for the base API URL
+const BASE_URL = process.env.REACT_APP_API_URL;
+
 // --- Integrated Dummy AuthLayout Component ---
 // Modified for the split-screen design: flex row
 function AuthLayout({ children }) {
@@ -11,53 +17,64 @@ function AuthLayout({ children }) {
     );
 }
 
-// Icon Components (to avoid external imports, used for the left panel design)
+// Icon Components (to avoid external imports)
 const Zap = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
 );
 const Wallet = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M5 9h14"/></svg>
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M5 9h14"/></svg>
 );
 const TrendingUp = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
 );
 const ShieldCheck = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
 );
 
 export default function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [error, setError] = useState(""); // Stores error messages
-    const navigate = useNavigate(); // Used to redirect user
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
 
     const handleLogin = async (e) => {
         e.preventDefault();
-        setError(""); // Clear previous errors
+        setError("");
+        setLoading(true);
+
+        if (!BASE_URL) {
+            setError("Configuration Error: API URL is missing. Check REACT_APP_API_URL.");
+            setLoading(false);
+            return;
+        }
 
         try {
-            // 🟢 URL restored to hardcoded value as per request
-            const response = await fetch("http://localhost:5000/api/auth/login", {
+            const response = await fetch(`${BASE_URL}/auth/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password }),
             });
 
+            const contentType = response.headers.get("content-type");
+            if (!contentType || !contentType.includes("application/json")) {
+                throw new Error("Received non-JSON response. Server issue or incorrect endpoint.");
+            }
+
             const data = await response.json();
 
             if (response.ok) {
-                // Success: Store token and redirect
-                console.log("Login Success:", data);
                 localStorage.setItem("token", data.token);
                 localStorage.setItem("user", JSON.stringify(data.user));
                 navigate("/dashboard");
             } else {
-                // Fail: Show error from backend
-                setError(data.error || "Login failed");
+                setError(data.error || "Login failed. Check your email and password.");
             }
         } catch (err) {
             console.error("Connection Error:", err);
-            setError("Server is not responding. Please try again later.");
+            setError(`Cannot connect to server: ${err.message || "Please check network and API URL."}`);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -129,6 +146,7 @@ export default function Login() {
                                 placeholder="you@example.com"
                                 onChange={(e) => setEmail(e.target.value)}
                                 value={email}
+                                disabled={loading}
                             />
                         </div>
 
@@ -140,6 +158,7 @@ export default function Login() {
                                 className="w-full p-3 rounded-lg bg-[#313337] border border-[#313337] focus:border-blue-500 focus:ring-1 ring-blue-500 outline-none transition duration-200 text-sm"
                                 onChange={(e) => setPassword(e.target.value)}
                                 value={password}
+                                disabled={loading}
                             />
                         </div>
 
@@ -151,6 +170,7 @@ export default function Login() {
                             <button
                                 type="button"
                                 className="text-blue-400 hover:text-blue-300 transition hover:underline"
+                                disabled={loading}
                             >
                                 Forgot password?
                             </button>
@@ -158,9 +178,10 @@ export default function Login() {
 
                         <button
                             type="submit"
-                            className="w-full p-3 mt-4 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-white transition duration-200 text-sm shadow-md shadow-blue-900/50"
+                            className="w-full p-3 mt-4 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-white transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm shadow-md shadow-blue-900/50"
+                            disabled={loading}
                         >
-                            Sign in
+                            {loading ? "Signing in..." : "Sign in"}
                         </button>
                     </form>
 
