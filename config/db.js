@@ -1,59 +1,34 @@
-// const { Pool } = require('pg');
-// require('dotenv').config();
-//
-//
-// const pool = new Pool({
-//     connectionString: process.env.DATABASE_URL,
-//     user: process.env.DB_USER,
-//     password: process.env.DB_PASSWORD,
-//     host: process.env.DB_HOST,
-//     port: process.env.DB_PORT,
-//     database: process.env.DB_NAME,
-//     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-// });
-//
-// const connectDB = async () => {
-//     try {
-//         await pool.query('SELECT NOW()');
-//         console.log('✅ PostgreSQL Database Connected Successfully');
-//     } catch (error) {
-//         console.error(`❌ Database Connection Error: ${error.message}`);
-//         process.exit(1);
-//     }
-// };
-//
-//
-// module.exports = {
-//     query: (text, params) => pool.query(text, params),
-//     connectDB,
-// };
-
-
 const { Pool } = require('pg');
 require('dotenv').config();
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
-    database: process.env.DB_NAME,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Configuration object
+const connectionConfig = {
+    // If DATABASE_URL is set (Production), use it. 
+    // Otherwise, build the string from local .env parts
+    connectionString: process.env.DATABASE_URL || `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
+    
+    // SSL Configuration: Required for DigitalOcean
+    ssl: isProduction ? { rejectUnauthorized: false } : false
+};
+
+const pool = new Pool(connectionConfig);
 
 const connectDB = async () => {
     try {
         await pool.query('SELECT NOW()');
-        console.log('✅ PostgreSQL Database Connected Successfully');
+        console.log(`✅ PostgreSQL Connected Successfully in ${isProduction ? 'Production' : 'Development'} mode`);
     } catch (error) {
         console.error(`❌ Database Connection Error: ${error.message}`);
-        process.exit(1);
+        // Do not exit process in production immediately; let it retry or fail gracefully usually
+        // But for startup debugging, this is fine:
+        process.exit(1); 
     }
 };
 
 module.exports = {
     query: (text, params) => pool.query(text, params),
     connectDB,
-    pool, // 🟢 ADD THIS LINE: Exports the pool instance
+    pool,
 };
