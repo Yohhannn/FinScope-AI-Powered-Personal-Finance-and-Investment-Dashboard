@@ -3,11 +3,11 @@ import {
     Wallet, Plus, Pencil, CreditCard, Banknote, Coins,
     ArrowUpRight, ArrowDownRight, Search, Filter, ArrowRightLeft, Sparkles, Loader2
 } from 'lucide-react';
-import { Card, SectionHeader } from '../../components/DashboardUI';
-import EditWalletModal from '../../components/EditWalletModal';
-import TransactionDetailsModal from '../../components/TransactionDetailsModal';
-import WalletDetailsModal from '../../components/WalletDetailsModal';
-import TransferModal from '../../components/TransferModal';
+import { Card, SectionHeader } from './DashboardUI';
+import EditWalletModal from '../components/EditWalletModal';
+import TransactionDetailsModal from '../components/TransactionDetailsModal';
+import WalletDetailsModal from '../components/WalletDetailsModal';
+import TransferModal from '../components/TransferModal';
 
 const getWalletStyle = (type) => {
     const t = type?.toLowerCase();
