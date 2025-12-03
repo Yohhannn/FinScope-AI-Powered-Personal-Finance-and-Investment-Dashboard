@@ -3,28 +3,22 @@ import {
     Wallet, Plus, Pencil, CreditCard, Banknote, Coins,
     ArrowUpRight, ArrowDownRight, Search, Filter, ArrowRightLeft, Sparkles, Loader2
 } from 'lucide-react';
+
+// --- IMPORTANT: Assuming these components are correctly defined in DashboardUI.js and modal files ---
+// If these are NOT actual imports from files, uncomment the local placeholders below.
+
 import { Card, SectionHeader } from '../../components/DashboardUI';
 import EditWalletModal from '../../components/EditWalletModal';
 import TransactionDetailsModal from '../../components/TransactionDetailsModal';
 import WalletDetailsModal from '../../components/WalletDetailsModal';
 import TransferModal from '../../components/TransferModal';
 
-// 🚀 NEW: Define the base API URL from the environment variable
+// 🚀 Define the base API URL from the environment variable
 const BASE_URL = process.env.REACT_APP_API_URL;
 
-// --- Placeholder Components for Runnability ---
-const Card = ({ children, className = '' }) => (
-    <div className={`bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 ${className}`}>
-        {children}
-    </div>
-);
-const SectionHeader = ({ title, actions }) => (
-    <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{title}</h2>
-        {actions}
-    </div>
-);
-const MockModal = ({ isOpen, onClose, onSuccess }) => {
+
+// --- Local Mock Components (Keep these only if you do NOT have real imported files) ---
+const MockModal = ({ isOpen, onClose, onSuccess, wallet, transaction, walletId }) => {
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -37,11 +31,26 @@ const MockModal = ({ isOpen, onClose, onSuccess }) => {
         </div>
     );
 };
+// If you uncomment the mocks above, uncomment these lines and comment out the real imports:
+/*
+const Card = ({ children, className = '' }) => (
+    <div className={`bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 ${className}`}>
+        {children}
+    </div>
+);
+const SectionHeader = ({ title, actions }) => (
+    <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{title}</h2>
+        {actions}
+    </div>
+);
 const EditWalletModal = MockModal;
 const TransactionDetailsModal = MockModal;
 const WalletDetailsModal = MockModal;
 const TransferModal = MockModal;
-// --- End Placeholder Components ---
+*/
+// --- End Local Mock Components ---
+
 
 const getWalletStyle = (type) => {
     const t = type?.toLowerCase();
@@ -83,14 +92,11 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
             return;
         }
 
-        // Use the current state values if explicit data isn't passed (for manual refresh click)
         const currentWallets = walletsData || wallets;
         const currentNetWorth = netWorth || 0;
 
         try {
             const token = localStorage.getItem("token");
-
-            // Generate a focused prompt for liquidity and asset type assessment
             const walletSummary = currentWallets.map(w => ({
                 name: w.name,
                 type: w.type,
@@ -100,7 +106,6 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
 
             const message = `Analyze this list of user wallets (Total Net Worth: $${currentNetWorth.toLocaleString()}) and provide a 1-sentence assessment of their current liquidity or asset diversification. Wallets: ${JSON.stringify(walletSummary)}`;
 
-            // ✅ Use BASE_URL here
             const res = await fetch(`${BASE_URL}/ai/chat`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": token },
@@ -109,9 +114,11 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
 
             const result = await res.json();
             if (res.ok) {
-                // Update state AND localStorage
                 setAiWalletInsight(result.reply);
                 localStorage.setItem('aiWalletInsight', result.reply);
+            } else {
+                console.error("AI Insight Fetch Failed:", res.status);
+                setAiWalletInsight("Could not generate AI insight due to API error.");
             }
 
         } catch (e) {
@@ -135,7 +142,7 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
 
             try {
                 const token = localStorage.getItem("token");
-                // ✅ Use BASE_URL here
+                // ✅ Use BASE_URL
                 const res = await fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } });
                 const data = await res.json();
 
@@ -143,10 +150,20 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
                     setWallets(data.wallets);
                     setTransactions(data.recentTransactions);
 
-                    // Note: AI insight generation removed from refresh trigger as per previous design update.
+                } else {
+                    // 🚨 IMPORTANT: Check for Unauthorized (401)
+                    if (res.status === 401) {
+                        console.error("Authentication Failed: Token is invalid or expired.");
+                        // Optional: redirect user to login page here if 401
+                    }
+                    console.error(`Dashboard Fetch Failed: Status ${res.status}.`);
                 }
-            } catch (err) { console.error(err); }
-            finally { setLoading(false); }
+            } catch (err) {
+                console.error("Network Error during Dashboard fetch:", err);
+            }
+            finally {
+                setLoading(false);
+            }
         };
         fetchData();
     }, [refreshTrigger]);
@@ -173,10 +190,9 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
             }
             fetchInitialDataAndGenerateInsight();
         }
-    }, [aiWalletInsight, BASE_URL]); // Dependencies added
+    }, [aiWalletInsight, BASE_URL]);
 
     const handleManualRefresh = () => {
-        // Manually trigger insight generation using current data
         generateWalletInsight(wallets);
     }
 
@@ -194,6 +210,7 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
 
     if (loading) return <div className="flex h-64 items-center justify-center text-gray-500 dark:text-gray-400">Loading wallets...</div>;
 
+    // --- MAIN RENDER STARTS HERE ---
     return (
         <div className="space-y-8 max-w-7xl mx-auto">
             {/* Header */}
@@ -230,7 +247,6 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
                             </p>
                         )}
                         <button
-                            // 💡 Use the new manual handler
                             onClick={handleManualRefresh}
                             disabled={aiLoading}
                             className="mt-3 text-xs font-medium text-purple-600 dark:text-purple-400 hover:underline"
