@@ -69,21 +69,21 @@ const ProgressBar = ({ current, total, color = 'blue' }) => {
         </div>
     );
 };
-const MockModal = ({ isOpen, onClose, onSuccess, selectedTx }) => {
-    if (!isOpen) return null;
-    return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl max-w-lg w-full">
-                <h3 className="text-xl font-bold mb-4">Transaction/Wallet Mock Modal</h3>
-                <p className="text-gray-500">{selectedTx ? `Selected TX: ${selectedTx.name}` : 'No transaction selected'}</p>
-                <button onClick={() => { onSuccess(); onClose(); }} className="mt-4 bg-blue-500 text-white p-2 rounded-lg">Done</button>
-            </div>
-        </div>
-    );
-};
-const AddTransactionModal = MockModal;
-const AddWalletModal = MockModal;
-const TransactionDetailsModal = MockModal;
+// const MockModal = ({ isOpen, onClose, onSuccess, selectedTx }) => {
+//     if (!isOpen) return null;
+//     return (
+//         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+//             <div className="bg-white dark:bg-gray-800 p-6 rounded-xl max-w-lg w-full">
+//                 <h3 className="text-xl font-bold mb-4">Transaction/Wallet Mock Modal</h3>
+//                 <p className="text-gray-500">{selectedTx ? `Selected TX: ${selectedTx.name}` : 'No transaction selected'}</p>
+//                 <button onClick={() => { onSuccess(); onClose(); }} className="mt-4 bg-blue-500 text-white p-2 rounded-lg">Done</button>
+//             </div>
+//         </div>
+//     );
+// };
+// const AddTransactionModal = MockModal;
+// const AddWalletModal = MockModal;
+// const TransactionDetailsModal = MockModal;
 // --- End UI Component Imports ---
 
 
