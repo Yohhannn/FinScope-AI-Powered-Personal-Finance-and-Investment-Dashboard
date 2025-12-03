@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, AlertTriangle, Wallet, Lock } from 'lucide-react';
 
+// 🚀 NEW: Define the base API URL from the environment variable
+const BASE_URL = process.env.REACT_APP_API_URL;
+
 export default function ContributeGoalModal({ isOpen, onClose, goal, onSuccess }) {
     const [walletId, setWalletId] = useState('');
     const [amount, setAmount] = useState('');
@@ -17,6 +20,11 @@ export default function ContributeGoalModal({ isOpen, onClose, goal, onSuccess }
             setLoading(false);
             setMode('add');
 
+            if (!BASE_URL) {
+                setError("API Configuration Error: BASE_URL is not set.");
+                return;
+            }
+
             // 🟢 PRE-SET WALLET ID FROM GOAL
             if (goal && goal.wallet_id) {
                 setWalletId(goal.wallet_id);
@@ -25,7 +33,8 @@ export default function ContributeGoalModal({ isOpen, onClose, goal, onSuccess }
             const fetchWallets = async () => {
                 const token = localStorage.getItem("token");
                 try {
-                    const res = await fetch("http://localhost:5000/api/dashboard", { headers: { Authorization: token } });
+                    // ✅ Use BASE_URL here for data fetching
+                    const res = await fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } });
                     if (res.ok) {
                         const data = await res.json();
                         setWallets(data.wallets || []);
@@ -40,12 +49,18 @@ export default function ContributeGoalModal({ isOpen, onClose, goal, onSuccess }
             };
             fetchWallets();
         }
-    }, [isOpen, goal]);
+    }, [isOpen, goal, BASE_URL]); // Dependency added for BASE_URL
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setLoading(true);
+
+        if (!BASE_URL) {
+            setError("API Configuration Error: BASE_URL is not set.");
+            setLoading(false);
+            return;
+        }
 
         const parsedAmount = parseFloat(amount);
 
@@ -69,7 +84,8 @@ export default function ContributeGoalModal({ isOpen, onClose, goal, onSuccess }
 
         try {
             const token = localStorage.getItem("token");
-            const res = await fetch(`http://localhost:5000/api/dashboard/goal/${goal.goal_id}/contribute`, {
+            // ✅ Use BASE_URL here for the POST request
+            const res = await fetch(`${BASE_URL}/dashboard/goal/${goal.goal_id}/contribute`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: token },
                 body: JSON.stringify({ wallet_id: walletId, amount: finalAmount })
@@ -80,6 +96,7 @@ export default function ContributeGoalModal({ isOpen, onClose, goal, onSuccess }
             if (res.ok) {
                 if (onSuccess) onSuccess();
                 onClose();
+                // Using alert() here as per the original code's style
                 setTimeout(() => alert(mode === 'add' ? "Funds Allocated Successfully!" : "Funds Removed Successfully!"), 300);
             } else {
                 setError(data.error || "Failed to update funds.");
