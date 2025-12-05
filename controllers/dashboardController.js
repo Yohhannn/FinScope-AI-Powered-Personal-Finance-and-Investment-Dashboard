@@ -1,5 +1,5 @@
 const DashboardModel = require("../models/dashboardModel");
-const db = require("../config/db.js"); // Keeping this import if needed for error code checks
+const db = require("../config/db.js");
 
 const DashboardController = {
     // ==========================
@@ -27,9 +27,7 @@ const DashboardController = {
         }
     },
 
-
-    // 🟢 DASHBOARD OVERVIEW
-// 🟢 DASHBOARD OVERVIEW (Updated with Net Worth % Calculation)
+    // 🟢 DASHBOARD OVERVIEW (Updated with Net Worth % Calculation)
     getDashboardData: async (req, res) => {
         try {
             const userId = req.user.user_id;
@@ -63,7 +61,7 @@ const DashboardController = {
 
             res.json({
                 netWorth: currentNetWorth,
-                netWorthChange: percentageChange.toFixed(1), // 🟢 SEND THIS TO FRONTEND
+                netWorthChange: percentageChange.toFixed(1),
                 wallets: wallets.rows,
                 recentTransactions: transactions.rows,
                 budgets: pinnedBudgets.rows,
@@ -92,14 +90,12 @@ const DashboardController = {
         }
     },
 
-
-
     getBudgetHistory: async (req, res) => {
         try {
             const { id } = req.params;
-            const userId = req.user.user_id; // 🟢 Get the user ID from the token
+            const userId = req.user.user_id;
 
-            // 🟢 Pass userId to the model
+            // Pass userId to the model for security
             const history = await DashboardModel.getBudgetTransactions(id, userId);
 
             res.json(history.rows);
@@ -207,6 +203,7 @@ const DashboardController = {
 
                 let currentBalance = parseFloat(walletResult.rows[0].balance);
 
+                // If updating the same wallet, we must "credit back" the old amount first mentally to check funds
                 if (oldTx.wallet_id === parseInt(wallet_id)) {
                     if (oldTx.type === 'expense') currentBalance += parseFloat(Math.abs(oldTx.amount));
                     else currentBalance -= parseFloat(Math.abs(oldTx.amount));
@@ -220,9 +217,11 @@ const DashboardController = {
                 }
             }
 
+            // 1. Revert old transaction effect
             const oldReversal = oldTx.type === 'expense' ? Math.abs(oldTx.amount) : -Math.abs(oldTx.amount);
             await DashboardModel.updateWalletBalance(oldTx.wallet_id, oldReversal);
 
+            // 2. Apply new transaction effect
             const newAmount = parseFloat(amount);
             const newAdjustment = type === 'expense' ? -Math.abs(newAmount) : Math.abs(newAmount);
             await DashboardModel.updateWalletBalance(parseInt(wallet_id), newAdjustment);
@@ -316,7 +315,7 @@ const DashboardController = {
                 limit_amount: parseFloat(limit_amount),
                 start_date,
                 end_date,
-                category_id: parseInt(category_id) // Pass this to model now
+                category_id: parseInt(category_id)
             });
             res.json(result.rows[0]);
         } catch (err) {
@@ -351,8 +350,7 @@ const DashboardController = {
     // 5. GOALS
     // ==========================
 
-    // 🟢 ADD GOAL (Refactored to use createGoalTransaction in model)
-// 🟢 ADD GOAL (Updated to handle Transaction Log + Wallet Deduction)
+    // 🟢 ADD GOAL (Updated to handle Transaction Log + Wallet Deduction)
     addGoal: async (req, res) => {
         try {
             const { name, target_amount, current_amount, wallet_id } = req.body;
@@ -364,7 +362,6 @@ const DashboardController = {
                 const wallet = await DashboardModel.getWalletById(wallet_id, userId);
                 if (wallet.rows.length === 0) return res.status(404).json({ error: "Wallet not found" });
 
-                // Use available_balance or balance depending on your preference
                 const availableBalance = parseFloat(wallet.rows[0].available_balance ?? wallet.rows[0].balance);
 
                 if (initialSave > availableBalance) {
@@ -394,8 +391,7 @@ const DashboardController = {
                     true // is_contribution = TRUE
                 );
 
-                // B. DEDUCT the money from the Wallet (Crucial Step!)
-                // We use negative Math.abs to ensure we subtract
+                // B. DEDUCT the money from the Wallet
                 await DashboardModel.updateWalletBalance(parseInt(wallet_id), -Math.abs(initialSave));
             }
 
@@ -456,7 +452,6 @@ const DashboardController = {
         }
     },
 
-    // 🟢 DELETE GOAL (Standard CRUD)
     deleteGoal: async (req, res) => {
         try {
             await DashboardModel.deleteGoal(req.params.id);
@@ -511,7 +506,8 @@ const DashboardController = {
             const result = await DashboardModel.createCategory({ name, userId });
             res.json(result.rows[0]);
         } catch (err) {
-            // ...
+            console.error(err.message);
+            res.status(500).json({ error: "Server Error" });
         }
     },
 
@@ -526,6 +522,7 @@ const DashboardController = {
             res.status(500).json({ error: err.message });
         }
     },
+
     getGoalHistory: async (req, res) => {
         try {
             const { id } = req.params;
@@ -569,14 +566,12 @@ const DashboardController = {
         }
     },
 
-
-
     deleteCategory: async (req, res) => {
         try {
             const { id } = req.params;
             const userId = req.user.user_id;
 
-            // 1. Check if category is a Default System Category (Refactored to use model)
+            // 1. Check if category is a Default System Category
             const categoryRes = await DashboardModel.getCategoryOwnerId(id);
 
             if (categoryRes.rows.length === 0) return res.status(404).json({ error: "Category not found" });
@@ -586,8 +581,7 @@ const DashboardController = {
                 return res.status(403).json({ error: "Cannot delete system default categories." });
             }
 
-            // 2. Attempt Delete
-            // We ensure we only delete if it belongs to the logged-in user
+            // 2. Attempt Delete (Only if belongs to logged-in user)
             const result = await DashboardModel.deleteCategory(id, userId);
 
             if (result.rowCount === 0) {
