@@ -1,13 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Bot, User, Sparkles, Loader2, Trash2, Upload, X } from 'lucide-react';
+import ReactMarkdown from 'react-markdown'; // 🟢 IMPORT ADDED
 
 // 🚀 NEW: Define the base API URL from the environment variable
 const BASE_URL = process.env.REACT_APP_API_URL;
 
 // Define the initial welcome message structure
-const initialMessage = { role: 'assistant', content: "Hello! I'm your FinScope AI Advisor. I have access to your wallets, budgets, and goals. How can I help you optimize your finances today?" };
+const initialMessage = {
+    role: 'assistant',
+    content: "Hello! I'm your FinScope AI Advisor. I have access to your wallets, budgets, and goals. How can I help you optimize your finances today?"
+};
 
-// 🟢 NEW/UPDATED: Define a strict system instruction including all detailed project context AND Philippine focus.
+// 🟢 SYSTEM INSTRUCTION (Kept exactly as you defined it)
 const SYSTEM_INSTRUCTION = `You are FinScope AI Advisor, a financial expert. Your primary role is to analyze the user's financial data (wallets, budgets, goals) and provide financial advice.
 
 **CONTEXT & LOCALE:**
@@ -45,7 +49,6 @@ const SYSTEM_INSTRUCTION = `You are FinScope AI Advisor, a financial expert. You
 
 Keep your responses professional and focused on actionable financial advice, unless a Project Detail rule is specifically triggered.`;
 
-
 export default function AIAdvisor() {
     const [messages, setMessages] = useState(() => {
         const storedMessages = localStorage.getItem('aiChatHistory');
@@ -65,22 +68,20 @@ export default function AIAdvisor() {
     const messagesEndRef = useRef(null);
 
     // PDF/Upload States
-    const [pdfContext, setPdfContext] = useState(null); // Stores extracted text
+    const [pdfContext, setPdfContext] = useState(null);
     const [pdfLoading, setPdfLoading] = useState(false);
     const fileInputRef = useRef(null);
 
-    // Persist messages to localStorage and auto-scroll whenever the state updates
+    // Persist messages to localStorage and auto-scroll
     useEffect(() => {
         localStorage.setItem('aiChatHistory', JSON.stringify(messages));
         scrollToBottom();
     }, [messages]);
 
-    // Auto-scroll to bottom
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
-    // Function to handle PDF file selection and extraction
     const handlePDFUpload = async (event) => {
         const file = event.target.files[0];
         if (!file || file.type !== 'application/pdf') {
@@ -91,19 +92,16 @@ export default function AIAdvisor() {
         setPdfLoading(true);
         setPdfContext(null);
 
-        // --- START MOCK PDF EXTRACTION ---
-        // 🚨 NOTE: Replace this mock function with real PDF parsing logic (e.g., using pdfjs-dist)
+        // --- MOCK PDF EXTRACTION ---
         const mockExtraction = () => new Promise(resolve => {
             setTimeout(() => {
                 const reader = new FileReader();
                 reader.onload = () => {
-                    // 🟢 UPDATED: Contextualized for Philippines (Peso)
                     resolve(`[PDF DATA START] Uploaded file: ${file.name}. This mock data simulates a salary slip for October 2025 (Philippines context). Gross income was ₱35,000. Rent expense receipt shows ₱8,500. Total investments listed are ₱5,000. [PDF DATA END]`);
                 };
                 reader.readAsDataURL(file);
-            }, 1500); // Simulate network/parsing delay
+            }, 1500);
         });
-        // --- END MOCK PDF EXTRACTION ---
 
         try {
             const extractedText = await mockExtraction(file);
@@ -119,7 +117,6 @@ export default function AIAdvisor() {
         }
     };
 
-    // Handler to trigger the hidden file input
     const triggerFileInput = () => {
         fileInputRef.current?.click();
     };
@@ -135,14 +132,12 @@ export default function AIAdvisor() {
             return;
         }
 
-        // If there's no typed message but there is PDF context, use a default analysis prompt
         if (!displayUserMessage && pdfContext) {
             displayUserMessage = "Analyze the uploaded financial data in the context.";
         }
 
         let promptContent = displayUserMessage;
 
-        // 🟢 Prepend PDF data to the prompt if available
         if (pdfContext) {
             promptContent = `[UPLOADED DATA]: ${pdfContext}\n\n[USER QUERY]: ${promptContent}`;
         }
@@ -151,8 +146,6 @@ export default function AIAdvisor() {
         setMessages(prev => [...prev, userMessageToDisplay]);
         setInput('');
         setLoading(true);
-
-        // Clear PDF context after sending the combined prompt
         setPdfContext(null);
 
         try {
@@ -165,15 +158,11 @@ export default function AIAdvisor() {
                 .slice(-6)
                 .map(m => ({ role: m.role, content: m.content }));
 
-            // Construct the final payload starting with the system instruction
             const finalPayloadHistory = [
                 { role: 'system', content: SYSTEM_INSTRUCTION },
                 ...conversationHistory
             ];
 
-            const messageToSend = promptContent;
-
-            // 🟢 UPDATED: Using BASE_URL
             const res = await fetch(`${BASE_URL}/ai/chat`, {
                 method: "POST",
                 headers: {
@@ -181,7 +170,7 @@ export default function AIAdvisor() {
                     "Authorization": token
                 },
                 body: JSON.stringify({
-                    message: messageToSend,
+                    message: promptContent,
                     history: finalPayloadHistory
                 })
             });
@@ -201,7 +190,6 @@ export default function AIAdvisor() {
         }
     };
 
-    // Function to clear the chat and localStorage
     const clearChat = () => {
         setMessages([initialMessage]);
         localStorage.removeItem('aiChatHistory');
@@ -210,7 +198,7 @@ export default function AIAdvisor() {
 
     const clearPdfContext = () => {
         setPdfContext(null);
-        fileInputRef.current.value = null; // Clear file input value
+        fileInputRef.current.value = null;
         setMessages(prev => [...prev, { role: 'assistant', content: "Uploaded PDF data has been cleared from context." }]);
     };
 
@@ -256,15 +244,24 @@ export default function AIAdvisor() {
                                     {msg.role === 'user' ? <User size={20} /> : <Bot size={20} />}
                                 </div>
 
-                                {/* Bubble */}
+                                {/* Bubble - 🟢 UPDATED with ReactMarkdown */}
                                 <div className={`max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed ${
                                     msg.role === 'user'
                                         ? 'bg-blue-600 text-white rounded-tr-none'
                                         : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-tl-none'
                                 }`}>
-                                    {msg.content.split('\n').map((line, i) => (
-                                        <p key={i} className={i > 0 ? 'mt-2' : ''}>{line}</p>
-                                    ))}
+                                    <ReactMarkdown
+                                        components={{
+                                            // 🟢 Custom styles to ensure Tailwind renders Markdown correctly
+                                            strong: ({node, ...props}) => <span className="font-bold" {...props} />,
+                                            ul: ({node, ...props}) => <ul className="list-disc pl-4 mt-2 mb-2" {...props} />,
+                                            ol: ({node, ...props}) => <ol className="list-decimal pl-4 mt-2 mb-2" {...props} />,
+                                            li: ({node, ...props}) => <li className="mb-1" {...props} />,
+                                            p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                                        }}
+                                    >
+                                        {msg.content}
+                                    </ReactMarkdown>
                                 </div>
                             </div>
                         )
@@ -288,7 +285,6 @@ export default function AIAdvisor() {
                 {/* Input Area */}
                 <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
 
-                    {/* 🟢 NEW: PDF Status Indicator */}
                     {pdfContext && (
                         <div className="mb-2 p-2 flex items-center justify-between bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400 rounded-lg text-sm">
                             <span className="font-medium flex items-center">
@@ -302,7 +298,6 @@ export default function AIAdvisor() {
                     )}
 
                     <form onSubmit={handleSend} className="relative flex items-center">
-                        {/* Hidden file input */}
                         <input
                             type="file"
                             ref={fileInputRef}
@@ -311,7 +306,6 @@ export default function AIAdvisor() {
                             className="hidden"
                         />
 
-                        {/* Upload Button */}
                         <button
                             type="button"
                             onClick={triggerFileInput}

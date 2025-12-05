@@ -71,7 +71,7 @@ cd frontend
 
 # Install frontend dependencies
 npm install
-npm install react-router-dom recharts jspdf jspdf-autotable file-saver papaparse lucide-react
+npm install react-router-dom recharts jspdf jspdf-autotable file-saver papaparse lucide-react react-markdown
 
 
 npm start
