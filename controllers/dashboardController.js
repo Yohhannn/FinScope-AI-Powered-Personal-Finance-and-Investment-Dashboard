@@ -1,4 +1,5 @@
 const DashboardModel = require("../models/dashboardModel");
+const db = require("../config/db.js"); // Keeping this import if needed for error code checks
 
 const DashboardController = {
     // ==========================
@@ -267,7 +268,6 @@ const DashboardController = {
     // ==========================
     // 4. BUDGETS
     // ==========================
-// controllers/dashboardController.js
 
     // 🟢 ADD BUDGET (With Duplicate Check)
     addBudget: async (req, res) => {
@@ -301,14 +301,8 @@ const DashboardController = {
             const { limit_amount, start_date, end_date, category_id } = req.body;
             const userId = req.user.user_id;
 
-            // 1. Check for Duplicate (Only if category is changing)
-            // We need to know if the user is changing the category to one that ALREADY exists elsewhere
-            // Logic: Is there a budget with this category_id that is NOT the current budget_id?
-            const pool = require("../config/db.js").pool;
-            const duplicateCheck = await pool.query(
-                `SELECT * FROM budget WHERE user_id = $1 AND category_id = $2 AND budget_id != $3`,
-                [userId, category_id, id]
-            );
+            // 1. Check for Duplicate (Moved logic to model)
+            const duplicateCheck = await DashboardModel.checkBudgetExistsForUpdate(userId, category_id, id);
 
             if (duplicateCheck.rows.length > 0) {
                 return res.status(400).json({ error: "A budget for this category already exists." });
@@ -353,8 +347,7 @@ const DashboardController = {
     // 5. GOALS
     // ==========================
 
-    // 🟢 ADD GOAL
-// 🟢 ADD GOAL (Updated to record Initial Save history)
+    // 🟢 ADD GOAL (Refactored to use createGoalTransaction in model)
     addGoal: async (req, res) => {
         try {
             const { name, target_amount, current_amount, wallet_id } = req.body;
@@ -381,13 +374,13 @@ const DashboardController = {
             });
             const newGoal = newGoalResult.rows[0];
 
-            // 🟢 3. If there was an initial save, record it in history
+            // 🟢 3. Record initial save using model function
             if (initialSave > 0 && wallet_id) {
-                const pool = require("../config/db.js").pool; // Ensure pool is imported
-                await pool.query(
-                    `INSERT INTO saving_goal_transaction (amount, transaction_date, goal_id, wallet_id) 
-                     VALUES ($1, CURRENT_DATE, $2, $3)`,
-                    [initialSave, newGoal.goal_id, wallet_id]
+                await DashboardModel.createGoalTransaction(
+                    initialSave,
+                    newGoal.goal_id,
+                    wallet_id,
+                    true // is_contribution = TRUE
                 );
             }
 
@@ -519,10 +512,6 @@ const DashboardController = {
         }
     },
 
-// ... inside dashboardController.js ...
-
-    // ... inside DashboardController ...
-
     transferFunds: async (req, res) => {
         try {
             const { source_wallet_id, dest_wallet_id, amount, date } = req.body;
@@ -562,9 +551,8 @@ const DashboardController = {
             const { id } = req.params;
             const userId = req.user.user_id;
 
-            // 1. Check if category is a Default System Category (Optional but recommended)
-            // Assuming user_id 1 is Admin/System
-            const categoryRes = await require("../config/db.js").query('SELECT user_id FROM category WHERE category_id = $1', [id]);
+            // 1. Check if category is a Default System Category (Refactored to use model)
+            const categoryRes = await DashboardModel.getCategoryOwnerId(id);
 
             if (categoryRes.rows.length === 0) return res.status(404).json({ error: "Category not found" });
 

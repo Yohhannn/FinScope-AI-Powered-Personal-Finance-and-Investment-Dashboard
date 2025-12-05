@@ -6,35 +6,38 @@ const DashboardModel = {
     // 🟢 1. UPDATED: Calculate 'Available Balance' dynamically
     getWallets: async (userId) => {
         return db.query(`
-            SELECT w.*, 
-            (w.balance - COALESCE((SELECT SUM(current_amount) FROM saving_goal WHERE wallet_id = w.wallet_id), 0)) AS available_balance
-            FROM wallet w 
-            WHERE user_id = $1 
+            SELECT w.*,
+                   (w.balance - COALESCE((SELECT SUM(current_amount) FROM saving_goal WHERE wallet_id = w.wallet_id), 0)) AS available_balance
+            FROM wallet w
+            WHERE user_id = $1
             ORDER BY w.balance DESC
         `, [userId]);
     },
 
-    // ... (Keep other read functions) ...
-
     getWalletById: async (walletId, userId) => {
         // We also need available_balance here for validation
         return db.query(`
-            SELECT w.*, 
-            (w.balance - COALESCE((SELECT SUM(current_amount) FROM saving_goal WHERE wallet_id = w.wallet_id), 0)) AS available_balance
-            FROM wallet w 
+            SELECT w.*,
+                   (w.balance - COALESCE((SELECT SUM(current_amount) FROM saving_goal WHERE wallet_id = w.wallet_id), 0)) AS available_balance
+            FROM wallet w
             WHERE wallet_id = $1 AND user_id = $2
         `, [walletId, userId]);
     },
 
-    // ... (Keep writes like createTransaction, etc.) ...
+    // 🟢 NEW FUNCTION: Create a transaction history for a saving goal (Moved from Controller)
+    createGoalTransaction: async (amount, goalId, walletId, isContribution) => {
+        return db.query(
+            `INSERT INTO saving_goal_transaction (amount, transaction_date, is_contribution, goal_id, wallet_id)
+             VALUES ($1, CURRENT_DATE, $4, $2, $3) RETURNING *`,
+            [amount, goalId, walletId, isContribution]
+        );
+    },
 
     // ============================================
     // 🟢 2. UPDATED: SOFT ALLOCATION (No Wallet Deduction)
     // ============================================
-// ... inside models/dashboardModel.js ...
 
-// 🟢 PERFORM CONTRIBUTION (Fixed Parameter Count)
-// 🟢 PERFORM CONTRIBUTION (Locked to current wallet)
+// 🟢 PERFORM CONTRIBUTION (Fixed: Added is_contribution = TRUE)
     performGoalContribution: async (userId, goalId, walletId, amount) => {
         const client = await db.pool.connect();
 
@@ -60,7 +63,6 @@ const DashboardModel = {
             }
 
             // 3. Update Goal Amount ONLY
-            // 🟢 REMOVED: "wallet_id = $3". We do not move the goal to a new wallet.
             await client.query(
                 'UPDATE saving_goal SET current_amount = current_amount + $1 WHERE goal_id = $2',
                 [contribution, goalId]
@@ -68,8 +70,8 @@ const DashboardModel = {
 
             // 4. Record History
             await client.query(
-                `INSERT INTO saving_goal_transaction (amount, transaction_date, goal_id, wallet_id)
-                 VALUES ($1, CURRENT_DATE, $2, $3)`,
+                `INSERT INTO saving_goal_transaction (amount, transaction_date, goal_id, wallet_id, is_contribution)
+                 VALUES ($1, CURRENT_DATE, $2, $3, TRUE)`, // ✅ FIXED: Added is_contribution = TRUE
                 [contribution, goalId, walletId]
             );
 
@@ -84,7 +86,6 @@ const DashboardModel = {
             client.release();
         }
     },
-    // ... inside DashboardModel ...
 
     // 🟢 PERFORM WALLET TRANSFER
     performWalletTransfer: async (userId, sourceWalletId, destWalletId, amount, date) => {
@@ -123,14 +124,14 @@ const DashboardModel = {
 
             // 5. Create Transaction Record for Source (Expense)
             await client.query(
-                `INSERT INTO transaction (name, amount, type, wallet_id, transaction_date, description) 
+                `INSERT INTO transaction (name, amount, type, wallet_id, transaction_date, description)
                  VALUES ($1, $2, 'expense', $3, $4, $5)`,
                 ['Transfer Out', transferAmount, sourceWalletId, date, `Transfer to ${destWallet.name}`]
             );
 
             // 6. Create Transaction Record for Destination (Income)
             await client.query(
-                `INSERT INTO transaction (name, amount, type, wallet_id, transaction_date, description) 
+                `INSERT INTO transaction (name, amount, type, wallet_id, transaction_date, description)
                  VALUES ($1, $2, 'income', $3, $4, $5)`,
                 ['Transfer In', transferAmount, destWalletId, date, `Transfer from ${sourceWallet.name}`]
             );
@@ -169,16 +170,14 @@ const DashboardModel = {
     rolloverBudgets: async (userId) => {
         return db.query(`
             UPDATE budget
-            SET 
+            SET
                 start_date = date_trunc('month', CURRENT_DATE),
                 end_date = (date_trunc('month', CURRENT_DATE) + interval '1 month' - interval '1 day')::date
-            WHERE 
-                user_id = $1 
-                AND end_date < CURRENT_DATE
+            WHERE
+                user_id = $1
+              AND end_date < CURRENT_DATE
         `, [userId]);
     },
-
-    // ... existing functions ...
 
     // 🟢 3. UPDATED: REVERT ALLOCATION (No Wallet Refund needed)
     deleteGoalTransaction: async (transactionId, userId) => {
@@ -189,9 +188,9 @@ const DashboardModel = {
 
             // A. Get details
             const txRes = await client.query(
-                `SELECT t.*, g.user_id 
-                 FROM saving_goal_transaction t 
-                 JOIN saving_goal g ON t.goal_id = g.goal_id 
+                `SELECT t.*, g.user_id
+                 FROM saving_goal_transaction t
+                          JOIN saving_goal g ON t.goal_id = g.goal_id
                  WHERE t.transaction_id = $1`,
                 [transactionId]
             );
@@ -223,13 +222,6 @@ const DashboardModel = {
             client.release();
         }
     },
-
-    // ... (Keep the rest of the file) ...
-    // Make sure to include the rest of your model functions here (createTransaction, etc)
-    // I am omitting them for brevity, but do not delete them!
-
-    // ... (Existing functions like getRecentTransactions, getPinnedBudgets, etc...) ...
-// ... inside DashboardModel ...
 
     // 🟢 FIX: Explicitly select transaction columns to avoid ambiguity
     getTransactionsByWalletId: async (walletId) => {
@@ -294,7 +286,7 @@ const DashboardModel = {
                 t.created_at, t.wallet_id, t.category_id,
                 w.name as wallet_name
             FROM transaction t
-            JOIN wallet w ON t.wallet_id = w.wallet_id
+                     JOIN wallet w ON t.wallet_id = w.wallet_id
             WHERE t.category_id = $1
               AND t.type = 'expense'
               AND t.transaction_date BETWEEN $2 AND $3
@@ -305,13 +297,13 @@ const DashboardModel = {
     // 🟢 FIX 5: getMonthlyNetFlow (Explicitly name the transaction table in the WHERE clause)
     getMonthlyNetFlow: async (userId) => {
         return db.query(`
-            SELECT 
+            SELECT
                 SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END) as total_income,
                 SUM(CASE WHEN t.type = 'expense' THEN t.amount ELSE 0 END) as total_expense
             FROM transaction t
-            JOIN wallet w ON t.wallet_id = w.wallet_id
+                     JOIN wallet w ON t.wallet_id = w.wallet_id
             WHERE w.user_id = $1
-            AND t.transaction_date >= date_trunc('month', CURRENT_DATE)
+              AND t.transaction_date >= date_trunc('month', CURRENT_DATE)
         `, [userId]);
     },
     getPinnedBudgets: async (userId) => {
@@ -323,7 +315,6 @@ const DashboardModel = {
     getBudgets: async (userId) => {
         return db.query(`SELECT b.*, c.name as category_name, (SELECT COALESCE(SUM(ABS(amount)), 0) FROM transaction t WHERE t.category_id = b.category_id AND t.type = 'expense' AND t.transaction_date BETWEEN b.start_date AND b.end_date) as spent FROM budget b JOIN category c ON b.category_id = c.category_id WHERE b.user_id = $1 ORDER BY b.budget_id DESC`, [userId]);
     },
-// ... inside DashboardModel ...
 
 
     getGoals: async (userId) => {
@@ -331,9 +322,9 @@ const DashboardModel = {
     },
     getGoalTransactions: async (goalId) => {
         return db.query(`
-            SELECT t.*, w.name as wallet_name 
+            SELECT t.*, w.name as wallet_name
             FROM saving_goal_transaction t
-            LEFT JOIN wallet w ON t.wallet_id = w.wallet_id
+                     LEFT JOIN wallet w ON t.wallet_id = w.wallet_id
             WHERE t.goal_id = $1
             ORDER BY t.created_at DESC
         `, [goalId]);
@@ -344,6 +335,12 @@ const DashboardModel = {
     getCategories: async (userId) => {
         return db.query('SELECT * FROM category WHERE user_id = $1 OR user_id = 1 ORDER BY category_id ASC', [userId]);
     },
+
+    // 🟢 NEW FUNCTION: Get Category Owner ID (Moved from Controller)
+    getCategoryOwnerId: async (id) => {
+        return db.query('SELECT user_id FROM category WHERE category_id = $1', [id]);
+    },
+
     getTransactionById: async (id) => {
         return db.query('SELECT * FROM transaction WHERE transaction_id = $1', [id]);
     },
@@ -392,7 +389,13 @@ const DashboardModel = {
         return res.rows.length > 0;
     },
 
-    // ... existing addBudget ...
+    // 🟢 NEW FUNCTION: Check for Duplicate on Update (Moved from Controller)
+    checkBudgetExistsForUpdate: async (userId, categoryId, budgetId) => {
+        return db.query(
+            `SELECT * FROM budget WHERE user_id = $1 AND category_id = $2 AND budget_id != $3`,
+            [userId, categoryId, budgetId]
+        );
+    },
 
     // 🟢 UPDATED: Include category_id in the UPDATE query
     updateBudget: async (id, data) => {
