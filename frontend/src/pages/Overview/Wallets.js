@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
     Wallet, Plus, Pencil, CreditCard, Banknote, Coins,
-    ArrowUpRight, ArrowDownRight, Search, Filter, ArrowRightLeft, Sparkles, Loader2
+    ArrowUpRight, ArrowDownRight, Search, Filter, ArrowRightLeft, Sparkles, Loader2,
+    ChevronDown, ChevronUp // 🟢 Added Icons for the toggle button
 } from 'lucide-react';
 
 // --- IMPORTANT: Ensure these paths match your project structure ---
@@ -11,7 +12,7 @@ import TransactionDetailsModal from '../../components/TransactionDetailsModal';
 import WalletDetailsModal from '../../components/WalletDetailsModal';
 import TransferModal from '../../components/TransferModal';
 
-// 🚀 NEW: Define the base API URL from the environment variable
+// 🚀 Define the base API URL
 const BASE_URL = process.env.REACT_APP_API_URL;
 
 const getWalletStyle = (type) => {
@@ -26,9 +27,14 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
     const [wallets, setWallets] = useState([]);
     const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // 🟢 Search & Filter States
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState('all');
     const [showFilter, setShowFilter] = useState(false);
+
+    // 🟢 NEW: View Control State
+    const [showAllTransactions, setShowAllTransactions] = useState(false); // Default to false (show 5)
 
     // 🟢 AI States
     const [aiWalletInsight, setAiWalletInsight] = useState(() => localStorage.getItem('aiWalletInsight') || '');
@@ -43,16 +49,11 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
     const [detailWalletId, setDetailWalletId] = useState(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
-    // 🟢 Function to call AI for Wallet Summary
+    // AI Insight Function
     const generateWalletInsight = async (walletsData, netWorth) => {
         setAiLoading(true);
         setAiWalletInsight('');
-
-        if (!BASE_URL) {
-            setAiWalletInsight("API Configuration Error: BASE_URL is not set.");
-            setAiLoading(false);
-            return;
-        }
+        if (!BASE_URL) { setAiLoading(false); return; }
 
         const currentWallets = walletsData || wallets;
         const currentNetWorth = netWorth || 0;
@@ -60,15 +61,11 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
         try {
             const token = localStorage.getItem("token");
             const walletSummary = currentWallets.map(w => ({
-                name: w.name,
-                type: w.type,
-                balance: w.balance,
-                available: w.available_balance
+                name: w.name, type: w.type, balance: w.balance, available: w.available_balance
             }));
 
             const message = `Analyze this list of user wallets (Total Net Worth: $${currentNetWorth.toLocaleString()}) and provide a 1-sentence assessment of their current liquidity or asset diversification. Wallets: ${JSON.stringify(walletSummary)}`;
 
-            // 🟢 UPDATED: Using BASE_URL
             const res = await fetch(`${BASE_URL}/ai/chat`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": token },
@@ -79,79 +76,70 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
             if (res.ok) {
                 setAiWalletInsight(result.reply);
                 localStorage.setItem('aiWalletInsight', result.reply);
-            } else {
-                setAiWalletInsight("Could not generate AI insight due to API error.");
             }
-
-        } catch (e) {
-            console.error("Wallet AI Error:", e);
-            setAiWalletInsight("AI couldn't analyze the asset allocation right now.");
-        } finally {
-            setAiLoading(false);
-        }
+        } catch (e) { console.error("Wallet AI Error:", e); }
+        finally { setAiLoading(false); }
     };
 
-    // 1. Data Fetching
+    // 🟢 1. Data Fetching (UPDATED to fetch ALL transactions)
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
-
-            if (!BASE_URL) {
-                console.error("Configuration Error: API URL is missing.");
-                setLoading(false);
-                return;
-            }
+            if (!BASE_URL) { setLoading(false); return; }
 
             try {
                 const token = localStorage.getItem("token");
-                // 🟢 UPDATED: Using BASE_URL
-                const res = await fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } });
-                const data = await res.json();
 
-                if (res.ok) {
-                    setWallets(data.wallets);
-                    setTransactions(data.recentTransactions);
-                } else {
-                    if (res.status === 401) {
-                        console.error("Authentication Failed.");
+                // A. Fetch Dashboard (For Wallets)
+                const dashRes = await fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } });
+                const dashData = await dashRes.json();
+
+                if (dashRes.ok) {
+                    setWallets(dashData.wallets);
+
+                    // 🟢 B. Attempt to Fetch FULL Transaction History
+                    try {
+                        const txRes = await fetch(`${BASE_URL}/transactions`, { headers: { Authorization: token } });
+                        if (txRes.ok) {
+                            const txData = await txRes.json();
+                            // Assuming backend returns { transactions: [...] } or just [...]
+                            setTransactions(Array.isArray(txData) ? txData : txData.transactions || []);
+                        } else {
+                            // Fallback: If /transactions endpoint doesn't exist, use the limited list from dashboard
+                            console.warn("Could not fetch full history, using dashboard snapshot.");
+                            setTransactions(dashData.recentTransactions || []);
+                        }
+                    } catch (txError) {
+                        console.warn("Transaction fetch failed, falling back.", txError);
+                        setTransactions(dashData.recentTransactions || []);
                     }
                 }
             } catch (err) {
-                console.error("Network Error during Dashboard fetch:", err);
-            }
-            finally {
+                console.error("Network Error:", err);
+            } finally {
                 setLoading(false);
             }
         };
         fetchData();
     }, [refreshTrigger]);
 
-    // 2. Initial AI Insight Load
+    // Initial AI Load
     useEffect(() => {
-        if (!BASE_URL) return;
-
-        if (!aiWalletInsight) {
-            const fetchInitialDataAndGenerateInsight = async () => {
-                try {
-                    const token = localStorage.getItem("token");
-                    // 🟢 UPDATED: Using BASE_URL
-                    const res = await fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } });
-                    const data = await res.json();
-                    if (res.ok) {
-                        generateWalletInsight(data.wallets, data.netWorth);
-                    }
-                } catch (e) {
-                    console.error("Failed initial insight data fetch", e);
-                }
-            }
-            fetchInitialDataAndGenerateInsight();
+        if (!BASE_URL || aiWalletInsight) return;
+        const initAI = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const res = await fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } });
+                const data = await res.json();
+                if (res.ok) generateWalletInsight(data.wallets, data.netWorth);
+            } catch (e) {}
         }
+        initAI();
     }, []);
 
-    const handleManualRefresh = () => {
-        generateWalletInsight(wallets);
-    }
+    const handleManualRefresh = () => generateWalletInsight(wallets);
 
+    // 🟢 Filter Logic
     const filteredTransactions = transactions.filter(tx => {
         const matchesSearch =
             tx.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -159,6 +147,11 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
             (tx.wallet_name && tx.wallet_name.toLowerCase().includes(searchQuery.toLowerCase()));
         return matchesSearch && (filterType === 'all' || tx.type === filterType);
     });
+
+    // 🟢 Dynamic Display Logic: Show 5 or All based on state
+    const displayedTransactions = showAllTransactions
+        ? filteredTransactions
+        : filteredTransactions.slice(0, 5);
 
     const handleEditWallet = (wallet) => { setSelectedWallet(wallet); setIsEditModalOpen(true); };
     const handleTxClick = (tx) => { setSelectedTx(tx); setIsTxModalOpen(true); };
@@ -187,23 +180,15 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
             {/* AI Insight Card */}
             <Card className="border-l-4 border-l-purple-500">
                 <div className="flex items-start gap-4">
-                    <div className="p-3 bg-purple-100 dark:bg-purple-900/50 rounded-2xl text-purple-600 dark:text-purple-400">
-                        <Sparkles size={24} />
-                    </div>
+                    <div className="p-3 bg-purple-100 dark:bg-purple-900/50 rounded-2xl text-purple-600 dark:text-purple-400"><Sparkles size={24} /></div>
                     <div className="flex-1">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Asset Allocation Health</h3>
                         {aiLoading ? (
-                            <p className="text-gray-500 dark:text-gray-400 text-sm animate-pulse flex items-center">
-                                <Loader2 size={16} className="mr-2 animate-spin" /> Analyzing wallet types...
-                            </p>
+                            <p className="text-gray-500 dark:text-gray-400 text-sm animate-pulse flex items-center"><Loader2 size={16} className="mr-2 animate-spin" /> Analyzing wallet types...</p>
                         ) : (
-                            <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm">
-                                {aiWalletInsight || "Click 'Refresh Assessment' to generate an insight based on your current data."}
-                            </p>
+                            <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm">{aiWalletInsight || "Click 'Refresh Assessment' to generate an insight based on your current data."}</p>
                         )}
-                        <button onClick={handleManualRefresh} disabled={aiLoading} className="mt-3 text-xs font-medium text-purple-600 dark:text-purple-400 hover:underline">
-                            {aiLoading ? '...' : 'Refresh Assessment'}
-                        </button>
+                        <button onClick={handleManualRefresh} disabled={aiLoading} className="mt-3 text-xs font-medium text-purple-600 dark:text-purple-400 hover:underline">{aiLoading ? '...' : 'Refresh Assessment'}</button>
                     </div>
                 </div>
             </Card>
@@ -233,7 +218,10 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
             {/* Transactions List */}
             <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-1">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">Recent Transactions</h3>
+                    <div className="flex items-center gap-2">
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">Transaction History</h3>
+                        <span className="bg-gray-100 dark:bg-gray-800 text-gray-500 text-xs px-2 py-1 rounded-full">{filteredTransactions.length} Total</span>
+                    </div>
                     <div className="flex gap-2 w-full sm:w-auto">
                         <div className="relative flex-1 sm:flex-initial">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
@@ -246,22 +234,38 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden flex flex-col">
                     {filteredTransactions.length === 0 ? <div className="p-12 text-center"><div className="inline-flex p-3 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-400 mb-3"><Search size={24} /></div><p className="text-gray-500 dark:text-gray-400">{transactions.length === 0 ? "No transactions found." : "No matches found for your search."}</p></div> :
-                        <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                            {filteredTransactions.map(tx => {
-                                const isIncome = tx.type === 'income';
-                                return (
-                                    <div key={tx.transaction_id} onClick={() => handleTxClick(tx)} className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition cursor-pointer group">
-                                        <div className="flex items-center gap-4">
-                                            <div className={`p-3 rounded-full ${isIncome ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'}`}>{isIncome ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}</div>
-                                            <div><p className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{tx.name}</p><div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mt-0.5"><span className="font-medium">{tx.category_name || 'Uncategorized'}</span><span className="mx-1.5">•</span><span>{new Date(tx.transaction_date).toLocaleDateString()}</span><span className="mx-1.5">•</span><span>{tx.wallet_name}</span></div></div>
+                        <>
+                            <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                                {displayedTransactions.map(tx => {
+                                    const isIncome = tx.type === 'income';
+                                    return (
+                                        <div key={tx.transaction_id} onClick={() => handleTxClick(tx)} className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition cursor-pointer group">
+                                            <div className="flex items-center gap-4">
+                                                <div className={`p-3 rounded-full ${isIncome ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'}`}>{isIncome ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}</div>
+                                                <div><p className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{tx.name}</p><div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mt-0.5"><span className="font-medium">{tx.category_name || 'Uncategorized'}</span><span className="mx-1.5">•</span><span>{new Date(tx.transaction_date).toLocaleDateString()}</span><span className="mx-1.5">•</span><span>{tx.wallet_name}</span></div></div>
+                                            </div>
+                                            <div className={`text-right font-bold text-base ${isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{isIncome ? '+' : '-'}${Math.abs(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
                                         </div>
-                                        <div className={`text-right font-bold text-base ${isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{isIncome ? '+' : '-'}${Math.abs(tx.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-                                    </div>
-                                );
-                            })}
-                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* 🟢 VIEW ALL / SHOW LESS BUTTON */}
+                            {filteredTransactions.length > 5 && (
+                                <button
+                                    onClick={() => setShowAllTransactions(!showAllTransactions)}
+                                    className="w-full py-3 bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 text-sm font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center justify-center border-t border-gray-100 dark:border-gray-700"
+                                >
+                                    {showAllTransactions ? (
+                                        <>Show Less <ChevronUp size={16} className="ml-1" /></>
+                                    ) : (
+                                        <>View All Transactions ({filteredTransactions.length - 5} more) <ChevronDown size={16} className="ml-1" /></>
+                                    )}
+                                </button>
+                            )}
+                        </>
                     }
                 </div>
             </div>
@@ -270,8 +274,6 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
             <TransactionDetailsModal isOpen={isTxModalOpen} onClose={() => setIsTxModalOpen(false)} transaction={selectedTx} onSuccess={onTriggerRefresh} />
             <WalletDetailsModal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} walletId={detailWalletId} />
 
-            {/* 🟢 CRITICAL FIX: TransferModal is now conditionally rendered.
-                It will ONLY render (and attempt to fetch data) when isOpen is true. */}
             {isTransferModalOpen && (
                 <TransferModal
                     isOpen={isTransferModalOpen}
