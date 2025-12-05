@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, Plus, AlertTriangle, Lock } from 'lucide-react'; // 🟢 Added Lock icon
+import { X, Trash2, Plus, AlertTriangle, Lock } from 'lucide-react';
 
 const BASE_URL = process.env.REACT_APP_API_URL;
 
 export default function ManageCategoriesModal({ isOpen, onClose }) {
     const [categories, setCategories] = useState([]);
-    const [activeCategoryIds, setActiveCategoryIds] = useState(new Set()); // 🟢 Store IDs of categories in use
+    const [activeCategoryIds, setActiveCategoryIds] = useState(new Set());
     const [newName, setNewName] = useState('');
     const [error, setError] = useState('');
 
@@ -13,6 +13,8 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
     const fetchCats = async () => {
         try {
             const token = localStorage.getItem("token");
+            if (!token) return; // Guard clause
+
             const res = await fetch(`${BASE_URL}/dashboard/categories`, {
                 headers: { Authorization: token }
             });
@@ -20,22 +22,24 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
         } catch(e) { console.error(e); }
     };
 
-    // 🟢 2. Fetch Active Budgets to check usage
+    // 2. Fetch Active Budgets
     const fetchActiveBudgets = async () => {
         try {
             const token = localStorage.getItem("token");
-            // Assuming you have an endpoint that returns budgets
+            if (!token) return;
+
             const res = await fetch(`${BASE_URL}/dashboard/budgets`, {
                 headers: { Authorization: token }
             });
 
             if(res.ok) {
                 const data = await res.json();
-                // Extract category_ids from the budgets array
-                // Note: Adjust 'data.budgets' if your API returns a flat array instead of an object
                 const budgetList = data.budgets || data;
-                const usedIds = new Set(budgetList.map(b => b.category_id));
-                setActiveCategoryIds(usedIds);
+                // Safely map if budgetList is an array
+                if (Array.isArray(budgetList)) {
+                    const usedIds = new Set(budgetList.map(b => b.category_id));
+                    setActiveCategoryIds(usedIds);
+                }
             }
         } catch(e) { console.error("Error fetching usage:", e); }
     };
@@ -43,13 +47,13 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
     useEffect(() => {
         if(isOpen) {
             fetchCats();
-            fetchActiveBudgets(); // 🟢 Check usage when modal opens
+            fetchActiveBudgets();
             setError('');
             setNewName('');
         }
     }, [isOpen]);
 
-    // 3. Add Category
+    // 🟢 3. FIXED: Add Category with Better Debugging
     const handleAdd = async (e) => {
         e.preventDefault();
         setError('');
@@ -58,7 +62,6 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
         if(!trimmedName) return;
 
         const exists = categories.some(c => c.name.toLowerCase() === trimmedName.toLowerCase());
-
         if (exists) {
             setError(`'${trimmedName}' already exists.`);
             return;
@@ -66,20 +69,42 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
 
         try {
             const token = localStorage.getItem("token");
+            if (!token) {
+                setError("You are not logged in.");
+                return;
+            }
+
+            console.log("Sending payload:", { name: trimmedName }); // Debug log
+
             const res = await fetch(`${BASE_URL}/dashboard/category`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", Authorization: token },
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": token
+                },
                 body: JSON.stringify({ name: trimmedName })
             });
 
+            // 🟢 Handle response logic safely
             if(res.ok) {
                 setNewName('');
                 fetchCats();
             } else {
-                const data = await res.json();
-                setError(data.error || "Failed to add category");
+                // Check if response is JSON or Text (HTML error page)
+                const contentType = res.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    const data = await res.json();
+                    setError(data.error || "Failed to add category");
+                } else {
+                    const text = await res.text();
+                    console.error("Server Error (Raw):", text);
+                    setError("Server Error (500). Check Console for details.");
+                }
             }
-        } catch(e) { console.error(e); }
+        } catch(e) {
+            console.error(e);
+            setError("Network error occurred.");
+        }
     };
 
     // 4. Delete Category
@@ -135,8 +160,8 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
                     {categories.length === 0 && <p className="text-gray-500 text-center mt-4">No categories found.</p>}
 
                     {categories.map(c => {
-                        // 🟢 Check if this category is currently in a budget
                         const isInUse = activeCategoryIds.has(c.category_id);
+                        // Ensure user_id matches logic (assumed 1 is default/admin)
                         const isDefault = c.user_id === 1;
 
                         return (
@@ -147,13 +172,11 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
                                     {isDefault ? (
                                         <span className="text-xs text-gray-400 px-2 bg-gray-200 dark:bg-gray-800 rounded py-1">Default</span>
                                     ) : isInUse ? (
-                                        // 🟢 Show Lock Icon if in use
                                         <div className="flex items-center text-amber-500 dark:text-amber-400 gap-1 px-2 py-1 bg-amber-50 dark:bg-amber-900/20 rounded cursor-help" title="Cannot delete: Currently used in a budget">
                                             <Lock size={14} />
                                             <span className="text-xs font-medium">In Use</span>
                                         </div>
                                     ) : (
-                                        // 🟢 Only show delete if NOT default and NOT in use
                                         <button onClick={() => handleDelete(c.category_id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition">
                                             <Trash2 size={18}/>
                                         </button>
