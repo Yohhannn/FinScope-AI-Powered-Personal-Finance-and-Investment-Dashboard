@@ -497,8 +497,8 @@ const DashboardController = {
             const { name } = req.body;
             const userId = req.user.user_id;
 
-            // 1. Check for duplicates in database before creating
-            const existing = await DashboardModel.checkCategoryExists(name, userId);
+            // 🟢 FIX: Argument order swapped to match Model (userId, name)
+            const existing = await DashboardModel.checkCategoryExists(userId, name);
             if (existing) {
                 return res.status(400).json({ error: "Category already exists" });
             }

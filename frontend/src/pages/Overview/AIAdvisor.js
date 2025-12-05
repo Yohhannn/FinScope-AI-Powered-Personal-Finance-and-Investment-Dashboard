@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Sparkles, Loader2, Trash2, Upload, X, FileWarning } from 'lucide-react';
+import { Send, Bot, User, Sparkles, Loader2, Trash2, Upload, X, FileWarning, Lightbulb } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 // 🚀 NEW: Define the base API URL from the environment variable
@@ -12,12 +12,21 @@ const initialMessage = {
 };
 
 // 🟢 NEW: Financial Keywords for Validation (Heuristics)
-// The system will scan the PDF text. If it doesn't find enough of these words, it rejects the file.
 const FINANCIAL_KEYWORDS = [
     'balance', 'account', 'statement', 'transaction', 'debit', 'credit',
     'deposit', 'withdrawal', 'amount', 'total', 'due', 'payment',
     'salary', 'income', 'expense', 'interest', 'tax', 'php', '₱',
     'bank', 'bill', 'invoice', 'receipt', 'gross', 'net', 'savings', 'budget'
+];
+
+// 🟢 NEW: Suggestion Chips (Quick Actions)
+const SUGGESTION_CHIPS = [
+    "Analyze my spending trends",
+    "How can I save more money?",
+    "Create a monthly budget plan",
+    "Explain the 50/30/20 rule",
+    "Am I overspending on food?",
+    "Suggest an investment strategy"
 ];
 
 // 🟢 SYSTEM INSTRUCTION
@@ -79,7 +88,7 @@ export default function AIAdvisor() {
     // PDF/Upload States
     const [pdfContext, setPdfContext] = useState(null);
     const [pdfLoading, setPdfLoading] = useState(false);
-    const [pdfError, setPdfError] = useState(null); // 🟢 NEW: Store validation errors
+    const [pdfError, setPdfError] = useState(null);
     const fileInputRef = useRef(null);
 
     // Persist messages to localStorage and auto-scroll
@@ -92,18 +101,14 @@ export default function AIAdvisor() {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
-    // 🟢 NEW: Validation Logic
+    // 🟢 Validation Logic
     const validateFinancialContent = (text) => {
         if (!text) return false;
         const lowerText = text.toLowerCase();
-
-        // Count how many unique financial keywords appear in the text
         let matchCount = 0;
         FINANCIAL_KEYWORDS.forEach(word => {
             if (lowerText.includes(word)) matchCount++;
         });
-
-        // Threshold: The document must contain at least 3 unique financial keywords to be considered valid
         return matchCount >= 3;
     };
 
@@ -116,16 +121,13 @@ export default function AIAdvisor() {
 
         setPdfLoading(true);
         setPdfContext(null);
-        setPdfError(null); // Reset errors
+        setPdfError(null);
 
         // --- MOCK PDF EXTRACTION ---
-        // In a real app, use pdfjs-dist here.
         const mockExtraction = () => new Promise(resolve => {
             setTimeout(() => {
                 const reader = new FileReader();
                 reader.onload = () => {
-                    // 🟢 SIMULATED DATA: This string contains keywords like 'income', 'expense', 'receipt', 'investments'
-                    // So this should PASS validation.
                     resolve(`[PDF DATA START] Uploaded file: ${file.name}. This mock data simulates a salary slip for October 2025 (Philippines context). Gross income was ₱35,000. Rent expense receipt shows ₱8,500. Total investments listed are ₱5,000. [PDF DATA END]`);
                 };
                 reader.readAsDataURL(file);
@@ -134,18 +136,15 @@ export default function AIAdvisor() {
 
         try {
             const extractedText = await mockExtraction(file);
-
-            // 🟢 STEP 2: Validate Content
             const isValid = validateFinancialContent(extractedText);
 
             if (isValid) {
                 setPdfContext(extractedText);
                 setMessages(prev => [...prev, { role: 'assistant', content: `Successfully loaded data from: ${file.name}. It is now available for analysis.` }]);
             } else {
-                // 🔴 REJECT FILE
                 setPdfError(`The file "${file.name}" does not appear to be a financial document. Analysis cancelled.`);
                 setMessages(prev => [...prev, { role: 'assistant', content: `I analyzed "${file.name}" but it doesn't look like a financial document (e.g., bank statement, receipt). Please upload a valid financial file.` }]);
-                fileInputRef.current.value = null; // Reset input so they can try again
+                fileInputRef.current.value = null;
             }
 
         } catch (error) {
@@ -161,10 +160,14 @@ export default function AIAdvisor() {
         fileInputRef.current?.click();
     };
 
-    const handleSend = async (e) => {
-        e.preventDefault();
+    // 🟢 UPDATED: handleSend now accepts an optional manualText argument
+    // This allows chips to auto-send messages.
+    const handleSend = async (e, manualText = null) => {
+        if (e) e.preventDefault();
 
-        let displayUserMessage = input.trim();
+        // Use manualText if provided, otherwise use state input
+        let displayUserMessage = manualText || input.trim();
+
         if (!displayUserMessage && !pdfContext) return;
 
         if (!BASE_URL) {
@@ -184,15 +187,13 @@ export default function AIAdvisor() {
 
         const userMessageToDisplay = { role: 'user', content: displayUserMessage };
         setMessages(prev => [...prev, userMessageToDisplay]);
-        setInput('');
+        setInput(''); // Clear input
         setLoading(true);
-        // Note: We don't clear pdfContext here so user can ask multiple questions about the same PDF.
 
         try {
             const token = localStorage.getItem("token");
 
             const historyWithNewMessage = [...messages, userMessageToDisplay];
-
             const conversationHistory = historyWithNewMessage
                 .filter(m => m.role !== 'system')
                 .slice(-6)
@@ -286,7 +287,7 @@ export default function AIAdvisor() {
                                     {msg.role === 'user' ? <User size={20} /> : <Bot size={20} />}
                                 </div>
 
-                                {/* Bubble - 🟢 UPDATED with ReactMarkdown */}
+                                {/* Bubble */}
                                 <div className={`max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed ${
                                     msg.role === 'user'
                                         ? 'bg-blue-600 text-white rounded-tr-none'
@@ -294,7 +295,6 @@ export default function AIAdvisor() {
                                 }`}>
                                     <ReactMarkdown
                                         components={{
-                                            // 🟢 Custom styles to ensure Tailwind renders Markdown correctly
                                             strong: ({node, ...props}) => <span className="font-bold" {...props} />,
                                             ul: ({node, ...props}) => <ul className="list-disc pl-4 mt-2 mb-2" {...props} />,
                                             ol: ({node, ...props}) => <ol className="list-decimal pl-4 mt-2 mb-2" {...props} />,
@@ -327,9 +327,9 @@ export default function AIAdvisor() {
                 {/* Input Area */}
                 <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
 
-                    {/* 🟢 SUCCESS MESSAGE (Only if data is valid) */}
+                    {/* 🟢 SUCCESS MESSAGE (If PDF Valid) */}
                     {pdfContext && (
-                        <div className="mb-2 p-2 flex items-center justify-between bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400 rounded-lg text-sm">
+                        <div className="mb-3 p-2 flex items-center justify-between bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400 rounded-lg text-sm">
                             <span className="font-medium flex items-center">
                                 <Upload size={16} className="mr-2"/>
                                 Data Verified & Ready.
@@ -342,7 +342,7 @@ export default function AIAdvisor() {
 
                     {/* 🔴 ERROR MESSAGE (If Validation Fails) */}
                     {pdfError && (
-                        <div className="mb-2 p-2 flex items-center justify-between bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400 rounded-lg text-sm animate-in fade-in slide-in-from-bottom-2">
+                        <div className="mb-3 p-2 flex items-center justify-between bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400 rounded-lg text-sm animate-in fade-in slide-in-from-bottom-2">
                             <span className="font-medium flex items-center">
                                 <FileWarning size={16} className="mr-2"/>
                                 {pdfError}
@@ -353,7 +353,24 @@ export default function AIAdvisor() {
                         </div>
                     )}
 
-                    <form onSubmit={handleSend} className="relative flex items-center">
+                    {/* 🟢 NEW: Suggestion Chips */}
+                    {/* Only show if not loading and user hasn't typed much yet */}
+                    {!loading && !pdfLoading && input.length === 0 && (
+                        <div className="flex gap-2 overflow-x-auto pb-3 mb-1 custom-scrollbar">
+                            {SUGGESTION_CHIPS.map((chip, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => handleSend(null, chip)}
+                                    className="flex items-center whitespace-nowrap px-3 py-1.5 bg-gray-100 dark:bg-gray-800 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400 border border-gray-200 dark:border-gray-700 rounded-full text-xs font-medium text-gray-600 dark:text-gray-300 transition-colors"
+                                >
+                                    <Lightbulb size={12} className="mr-1.5 opacity-70" />
+                                    {chip}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    <form onSubmit={(e) => handleSend(e)} className="relative flex items-center">
                         <input
                             type="file"
                             ref={fileInputRef}

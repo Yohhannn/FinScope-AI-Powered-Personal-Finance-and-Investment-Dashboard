@@ -50,6 +50,7 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
     // AI Insight Function
+// AI Insight Function
     const generateWalletInsight = async (walletsData, netWorth) => {
         setAiLoading(true);
         setAiWalletInsight('');
@@ -57,11 +58,19 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
 
         try {
             const token = localStorage.getItem("token");
-            const walletSummary = (walletsData || wallets).map(w => ({
-                name: w.name, type: w.type, balance: w.balance, available: w.available_balance
-            }));
 
-            const message = `Analyze this list of user wallets (Total Net Worth: $${(netWorth || 0).toLocaleString()}) and provide a 1-sentence assessment of their current liquidity or asset diversification. Wallets: ${JSON.stringify(walletSummary)}`;
+            // 1. Calculate Total Net Worth
+            // If netWorth is passed (from init), use it.
+            // If not (from manual refresh), calculate it from the wallet array.
+            let totalBalance = netWorth;
+
+            if (totalBalance === undefined || totalBalance === null) {
+                const currentWallets = walletsData || wallets;
+                totalBalance = currentWallets.reduce((sum, w) => sum + Number(w.balance || 0), 0);
+            }
+
+            // 2. Construct message with ONLY the total balance
+            const message = `My current total net worth across all my wallets is $${Number(totalBalance).toLocaleString()}. Provide a 1-sentence financial assessment, observation, or motivation based solely on this total amount.`;
 
             const res = await fetch(`${BASE_URL}/ai/chat`, {
                 method: "POST",
