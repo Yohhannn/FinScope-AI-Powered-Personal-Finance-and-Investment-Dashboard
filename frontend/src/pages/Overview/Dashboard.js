@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown'; // 🚀 NEW IMPORT
+import ReactMarkdown from 'react-markdown';
 import {
     LayoutDashboard, Wallet, PiggyBank, Sparkles,
     BarChart3, Settings as SettingsIcon, Sun, Moon, Plus, Bell, User,
@@ -8,7 +8,7 @@ import {
     CreditCard, LogOut, X, RotateCw, Menu, Star, Target, Loader2
 } from 'lucide-react';
 
-// 🟢 CRITICAL IMPORTS: Import the modals to fix the "not defined" error
+// 🟢 CRITICAL IMPORTS
 import AddTransactionModal from '../../components/AddTransactionModal';
 import AddWalletModal from '../../components/AddWalletModal';
 
@@ -58,7 +58,7 @@ const getGreeting = () => {
     return 'Good Evening';
 };
 
-// --- HOME COMPONENT (Restored UI) ---
+// --- HOME COMPONENT ---
 const DashboardHome = ({ user, refreshTrigger, onTriggerRefresh }) => {
     const navigate = useNavigate();
     const [data, setData] = useState({ netWorth: 0, netWorthChange: 0, wallets: [], recentTransactions: [], budgets: [], goals: [] });
@@ -147,12 +147,10 @@ const DashboardHome = ({ user, refreshTrigger, onTriggerRefresh }) => {
                         <div className="flex-1 min-w-0">
                             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">AI Financial Insight</h3>
 
-                            {/* 🟢 🚀 UPDATED: USING REACT-MARKDOWN */}
                             <div className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm">
                                 {aiLoading ? "Analyzing..." : (
                                     <ReactMarkdown
                                         components={{
-                                            // Custom renderer for bold text to ensure it contrasts well in dark mode
                                             strong: ({node, ...props}) => <span className="font-bold text-gray-900 dark:text-white" {...props} />
                                         }}
                                     >
@@ -167,7 +165,7 @@ const DashboardHome = ({ user, refreshTrigger, onTriggerRefresh }) => {
                 </Card>
             </div>
 
-            {/* Main Grid (RESTORED SECTIONS) */}
+            {/* Main Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left Column: Wallets & Transactions */}
                 <div className="lg:col-span-2 space-y-8">
@@ -257,18 +255,30 @@ export default function Dashboard() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [user, setUser] = useState({ name: 'User' });
     const [refreshTrigger, setRefreshTrigger] = useState(0);
-    const [isDarkMode, setIsDarkMode] = useState(() => { const saved = localStorage.getItem("theme"); return saved ? JSON.parse(saved) : true; });
-    const [aiNotifications, setAiNotifications] = useState([]);
-    const profileRef = useRef(null);
-    const notifRef = useRef(null);
+
+    // 🟢 INITIALIZE STATE FROM LOCALSTORAGE
+    const [isDarkMode, setIsDarkMode] = useState(() => {
+        const saved = localStorage.getItem("theme");
+        return saved ? JSON.parse(saved) : true;
+    });
 
     const triggerRefresh = () => setRefreshTrigger(prev => prev + 1);
 
+    // 🟢 EFFECT: LOAD USER (Runs once)
     useEffect(() => {
         const storedUser = localStorage.getItem("user");
         if (storedUser) setUser(JSON.parse(storedUser));
-        if (isDarkMode) document.documentElement.classList.add('dark');
-        else document.documentElement.classList.remove('dark');
+    }, []);
+
+    // 🟢 EFFECT: TOGGLE THEME & SAVE TO LOCALSTORAGE
+    useEffect(() => {
+        if (isDarkMode) {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem("theme", JSON.stringify(true)); // ✅ SAVE IT
+        } else {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem("theme", JSON.stringify(false)); // ✅ SAVE IT
+        }
     }, [isDarkMode]);
 
     const handleLogout = () => { localStorage.clear(); navigate("/login"); };
