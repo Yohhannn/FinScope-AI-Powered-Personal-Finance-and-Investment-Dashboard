@@ -304,20 +304,20 @@ const DashboardModel = {
     // We added: JOIN wallet w ON t.wallet_id = w.wallet_id AND w.user_id = b.user_id
     getPinnedBudgets: async (userId) => {
         return db.query(`
-            SELECT b.*, c.name as category_name, 
-            (
-                SELECT COALESCE(SUM(ABS(t.amount)), 0) 
-                FROM transaction t 
-                JOIN wallet w ON t.wallet_id = w.wallet_id
-                WHERE t.category_id = b.category_id 
-                AND t.type = 'expense' 
-                AND t.transaction_date BETWEEN b.start_date AND b.end_date
-                AND w.user_id = b.user_id -- 🔒 SECURITY CHECK
-            ) as spent 
-            FROM budget b 
-            JOIN category c ON b.category_id = c.category_id 
-            WHERE b.user_id = $1 AND b.is_pinned = TRUE 
-            LIMIT 4
+            SELECT b.*, c.name as category_name,
+                   (
+                       SELECT COALESCE(SUM(ABS(t.amount)), 0)
+                       FROM transaction t
+                                JOIN wallet w ON t.wallet_id = w.wallet_id
+                       WHERE t.category_id = b.category_id
+                         AND t.type = 'expense'
+                         AND t.transaction_date BETWEEN b.start_date AND b.end_date
+                         AND w.user_id = b.user_id -- 🔒 SECURITY CHECK
+                   ) as spent
+            FROM budget b
+                     JOIN category c ON b.category_id = c.category_id
+            WHERE b.user_id = $1 AND b.is_pinned = TRUE
+                LIMIT 4
         `, [userId]);
     },
 
@@ -457,10 +457,22 @@ const DashboardModel = {
     toggleGoalPin: async (id, status) => {
         return db.query('UPDATE saving_goal SET is_pinned = $1 WHERE goal_id = $2', [status, id]);
     },
+
+    // 🟢 CATEGORY OPERATIONS
     createCategory: async (data) => {
         const { name, userId } = data;
         return db.query(`INSERT INTO category (name, user_id) VALUES ($1, $2) RETURNING *`, [name, userId]);
     },
+
+    // 🟢 THIS WAS MISSING
+    checkCategoryExists: async (userId, name) => {
+        const res = await db.query(
+            'SELECT * FROM category WHERE user_id = $1 AND name = $2',
+            [userId, name]
+        );
+        return res.rows.length > 0;
+    },
+
     updateCategory: async (id, name) => {
         return db.query(`UPDATE category SET name=$1 WHERE category_id=$2 RETURNING *`, [name, id]);
     },
