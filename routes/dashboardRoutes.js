@@ -33,6 +33,7 @@ router.put("/budget/:id", authorize, DashboardController.updateBudget);
 router.delete("/budget/:id", authorize, DashboardController.deleteBudget);
 router.put("/budget/:id/pin", authorize, DashboardController.toggleBudgetPin);
 router.get("/budget/:id/transactions", authorize, DashboardController.getBudgetHistory);
+router.get("/transactions", authorize, DashboardController.getAllTransactions);
 
 // ==========================
 // 5. GOALS

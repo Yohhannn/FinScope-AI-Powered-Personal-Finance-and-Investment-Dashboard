@@ -566,6 +566,18 @@ const DashboardController = {
         }
     },
 
+    getAllTransactions: async (req, res) => {
+        try {
+            const userId = req.user.user_id;
+            // Reuse the existing model function that fetches all data
+            const transactions = await DashboardModel.getAllTransactions(userId);
+            res.json(transactions.rows);
+        } catch (err) {
+            console.error("Error fetching all transactions:", err.message);
+            res.status(500).json({ error: "Server Error" });
+        }
+    },
+
     deleteCategory: async (req, res) => {
         try {
             const { id } = req.params;
