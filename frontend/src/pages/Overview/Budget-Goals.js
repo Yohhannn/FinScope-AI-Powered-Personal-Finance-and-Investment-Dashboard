@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown'; // 🚀 NEW IMPORT
 import {
     Plus, Tags, Pencil, Star, TrendingUp, Target,
     CreditCard, Wallet, Banknote, Coins, ArrowUpRight, Lightbulb, Loader2
@@ -233,14 +234,21 @@ export default function BudgetGoals({ setCurrentPage }) {
                     <div className="flex-1">
                         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Goal & Budget Health Check</h3>
 
+                        {/* 🟢 🚀 UPDATED: USING REACT-MARKDOWN */}
                         {aiLoading ? (
                             <p className="text-gray-500 dark:text-gray-400 text-sm animate-pulse flex items-center">
                                 <Loader2 size={16} className="mr-2 animate-spin" /> Analyzing goal progress and spending pace...
                             </p>
                         ) : (
-                            <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm">
-                                {aiBudgetInsight || "AI insight pending. Click refresh to get an assessment."}
-                            </p>
+                            <div className="text-gray-600 dark:text-gray-300 leading-relaxed text-sm">
+                                <ReactMarkdown
+                                    components={{
+                                        strong: ({node, ...props}) => <span className="font-bold text-gray-900 dark:text-white" {...props} />
+                                    }}
+                                >
+                                    {aiBudgetInsight || "AI insight pending. Click refresh to get an assessment."}
+                                </ReactMarkdown>
+                            </div>
                         )}
 
                         <button onClick={() => generateBudgetInsight(budgets, goals)} className="mt-3 text-sm font-medium text-green-600 dark:text-green-400 hover:underline">
@@ -279,9 +287,7 @@ export default function BudgetGoals({ setCurrentPage }) {
                                 <div>
                                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1 capitalize">{wallet.type}</p>
                                     <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">{wallet.name}</h3>
-                                    {/* 🟢 Replaced $ with ₱ */}
                                     <p className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">₱{Number(wallet.available_balance ?? wallet.balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-                                    {/* 🟢 Replaced $ with ₱ */}
                                     <p className="text-xs text-gray-400 mt-1">of ₱{Number(wallet.balance).toLocaleString()} Total</p>
                                 </div>
                             </div>
@@ -320,14 +326,12 @@ export default function BudgetGoals({ setCurrentPage }) {
                                         <h4 className="text-lg font-bold text-gray-900 dark:text-white">{budget.category_name}</h4>
                                         {budget.is_pinned && <Star size={14} className="text-yellow-500 absolute top-6 right-16 sm:right-20" fill="currentColor" />}
                                     </div>
-                                    {/* 🟢 Replaced $ with ₱ */}
                                     <p className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">₱{spent.toLocaleString()}<span className="text-base font-medium text-gray-400 dark:text-gray-500"> / ₱{limit.toLocaleString()}</span></p>
                                 </div>
                                 <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3 mb-2 overflow-hidden">
                                     <div className={`h-3 rounded-full transition-all duration-500 ${isOver ? 'bg-red-500' : 'bg-blue-600'}`} style={{ width: `${percentage}%` }}></div>
                                 </div>
                                 <div className="flex justify-between items-center text-xs font-medium">
-                                    {/* 🟢 Replaced $ with ₱ */}
                                     <span className={`${isOver ? 'text-red-500' : 'text-green-500'}`}>{isOver ? `Over by ₱${(spent - limit).toLocaleString()}` : `₱${(limit - spent).toLocaleString()} remaining`}</span>
                                     <span className="text-gray-400">{(percentage).toFixed(0)}%</span>
                                 </div>
@@ -366,7 +370,6 @@ export default function BudgetGoals({ setCurrentPage }) {
                                         <h4 className="text-lg font-bold text-gray-900 dark:text-white">{goal.name}</h4>
                                         {goal.is_pinned && <Star size={14} className="text-yellow-500 absolute top-6 right-16 sm:right-20" fill="currentColor" />}
                                     </div>
-                                    {/* 🟢 Replaced $ with ₱ */}
                                     <p className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">₱{current.toLocaleString()}<span className="text-base font-medium text-gray-400 dark:text-gray-500"> / ₱{target.toLocaleString()}</span></p>
                                 </div>
                                 <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3 mb-4 overflow-hidden">
