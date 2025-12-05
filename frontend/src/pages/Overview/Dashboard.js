@@ -6,8 +6,8 @@ import {
     BarChart3, Settings as SettingsIcon, Sun, Moon, Plus, Bell, User,
     ChevronDown, Lightbulb, ArrowRight, ArrowUpRight, ArrowDownRight,
     CreditCard, LogOut, X, RotateCw, Menu, Star, Target, Loader2,
-    AlertTriangle, Clock, ShieldAlert, CheckCircle2,
-    PanelLeftClose, PanelLeftOpen // 🟢 NEW ICONS
+    AlertTriangle, Clock, ShieldAlert, CheckCircle2, Trash2, // Added Trash2
+    PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 
 // 🟢 CRITICAL IMPORTS
@@ -52,15 +52,26 @@ const ProgressBar = ({ current, total, color = 'blue' }) => {
     );
 };
 
-// Notification Panel Component
-const NotificationPanel = ({ isOpen, onClose, notifications }) => {
+// 🟢 UPDATED Notification Panel Component
+const NotificationPanel = ({ isOpen, onClose, notifications, onClear }) => {
     if (!isOpen) return null;
 
     return (
         <div className="absolute top-12 right-0 w-80 md:w-96 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 z-50 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
             <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
-                <h3 className="font-bold text-gray-900 dark:text-white">Notifications</h3>
-                <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded-full">{notifications.length} New</span>
+                <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-gray-900 dark:text-white">Notifications</h3>
+                    <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded-full">{notifications.length}</span>
+                </div>
+                {/* 🟢 Clear Button */}
+                {notifications.length > 0 && (
+                    <button
+                        onClick={onClear}
+                        className="text-xs flex items-center gap-1 text-red-500 hover:text-red-600 font-medium transition"
+                    >
+                        <Trash2 size={12} /> Clear All
+                    </button>
+                )}
             </div>
 
             <div className="max-h-[60vh] overflow-y-auto">
@@ -341,7 +352,7 @@ export default function Dashboard() {
         }
     }, [isDarkMode]);
 
-    // Generate Notifications
+    // 🟢 Generate Notifications (REMOVED MOCK DATA)
     useEffect(() => {
         const fetchAndGenerateNotifications = async () => {
             if (!BASE_URL) return;
@@ -375,8 +386,9 @@ export default function Dashboard() {
                         }
                     });
                 }
-                newNotifs.push({ type: 'reminder', category: 'Bill', title: 'Internet Bill Due', message: 'Your PLDT bill is due on Dec 10.' });
-                newNotifs.push({ type: 'warning', category: 'Security', title: 'Unusual Spending Detected', message: 'Large transaction of ₱15,000 detected in "Uncategorized".' });
+
+                // 🟢 REMOVED: Mock Bill and Mock Security Alerts
+
                 setNotifications(newNotifs);
             } catch (e) { console.error("Notif Error:", e); }
         };
@@ -386,6 +398,11 @@ export default function Dashboard() {
     const handleLogout = () => { localStorage.clear(); navigate("/login"); };
     const handleNavClick = (path) => { navigate(path); setIsMobileMenuOpen(false); };
     const getActivePath = (path) => path === APP_ROUTES.HOME ? location.pathname === APP_ROUTES.HOME : location.pathname.startsWith(`/${path}`);
+
+    // 🟢 Handle Clear Notifications
+    const handleClearNotifications = () => {
+        setNotifications([]);
+    };
 
     return (
         <div className={`flex h-screen font-sans ${isDarkMode ? 'dark' : ''} bg-gray-50 dark:bg-gray-950 overflow-hidden`}>
@@ -471,7 +488,13 @@ export default function Dashboard() {
                                 <Bell size={22} />
                                 {notifications.length > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-950"></span>}
                             </button>
-                            <NotificationPanel isOpen={isNotifOpen} onClose={() => setIsNotifOpen(false)} notifications={notifications} />
+                            {/* 🟢 Pass onClear to Panel */}
+                            <NotificationPanel
+                                isOpen={isNotifOpen}
+                                onClose={() => setIsNotifOpen(false)}
+                                notifications={notifications}
+                                onClear={handleClearNotifications}
+                            />
                         </div>
 
                         <div className="relative">
