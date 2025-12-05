@@ -5,7 +5,9 @@ import {
     LayoutDashboard, Wallet, PiggyBank, Sparkles,
     BarChart3, Settings as SettingsIcon, Sun, Moon, Plus, Bell, User,
     ChevronDown, Lightbulb, ArrowRight, ArrowUpRight, ArrowDownRight,
-    CreditCard, LogOut, X, RotateCw, Menu, Star, Target, Loader2
+    CreditCard, LogOut, X, RotateCw, Menu, Star, Target, Loader2,
+    AlertTriangle, Clock, ShieldAlert, CheckCircle2,
+    PanelLeftClose, PanelLeftOpen // 🟢 NEW ICONS
 } from 'lucide-react';
 
 // 🟢 CRITICAL IMPORTS
@@ -31,7 +33,7 @@ const APP_ROUTES = {
     SETTINGS: '/settings',
 };
 
-// UI Components
+// --- UI COMPONENTS ---
 const Card = ({ children, className = '' }) => (
     <div className={`bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 ${className}`}>
         {children}
@@ -46,6 +48,59 @@ const ProgressBar = ({ current, total, color = 'blue' }) => {
     return (
         <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
             <div className={`h-2 rounded-full ${colorClasses[color]}`} style={{ width: `${percentage}%` }}></div>
+        </div>
+    );
+};
+
+// Notification Panel Component
+const NotificationPanel = ({ isOpen, onClose, notifications }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="absolute top-12 right-0 w-80 md:w-96 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 z-50 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+            <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
+                <h3 className="font-bold text-gray-900 dark:text-white">Notifications</h3>
+                <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded-full">{notifications.length} New</span>
+            </div>
+
+            <div className="max-h-[60vh] overflow-y-auto">
+                {notifications.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500 dark:text-gray-400 flex flex-col items-center">
+                        <Bell size={32} className="mb-2 opacity-20" />
+                        <p className="text-sm">You're all caught up!</p>
+                    </div>
+                ) : (
+                    <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {notifications.map((notif, index) => (
+                            <div key={index} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition flex gap-3 items-start">
+                                <div className={`mt-1 p-2 rounded-full shrink-0 ${
+                                    notif.type === 'warning' ? 'bg-red-100 text-red-600 dark:bg-red-900/20' :
+                                        notif.type === 'alert' ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/20' :
+                                            'bg-blue-100 text-blue-600 dark:bg-blue-900/20'
+                                }`}>
+                                    {notif.type === 'warning' ? <ShieldAlert size={16} /> :
+                                        notif.type === 'alert' ? <AlertTriangle size={16} /> :
+                                            <Clock size={16} />}
+                                </div>
+                                <div>
+                                    <h4 className={`text-sm font-semibold ${
+                                        notif.type === 'warning' ? 'text-red-600 dark:text-red-400' :
+                                            notif.type === 'alert' ? 'text-orange-600 dark:text-orange-400' :
+                                                'text-gray-900 dark:text-white'
+                                    }`}>
+                                        {notif.title}
+                                    </h4>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">{notif.message}</p>
+                                    <p className="text-[10px] text-gray-400 mt-1.5 uppercase tracking-wide font-medium">{notif.category}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+            <div className="p-3 bg-gray-50 dark:bg-gray-800/50 text-center border-t border-gray-100 dark:border-gray-800">
+                <button onClick={onClose} className="text-xs font-medium text-gray-500 hover:text-gray-900 dark:hover:text-white transition">Close Panel</button>
+            </div>
         </div>
     );
 };
@@ -253,10 +308,15 @@ export default function Dashboard() {
     const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [isNotifOpen, setIsNotifOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+    // 🟢 1. Sidebar Collapse State
+    const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
+
     const [user, setUser] = useState({ name: 'User' });
     const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [notifications, setNotifications] = useState([]);
 
-    // 🟢 INITIALIZE STATE FROM LOCALSTORAGE
+    // Theme State
     const [isDarkMode, setIsDarkMode] = useState(() => {
         const saved = localStorage.getItem("theme");
         return saved ? JSON.parse(saved) : true;
@@ -264,22 +324,64 @@ export default function Dashboard() {
 
     const triggerRefresh = () => setRefreshTrigger(prev => prev + 1);
 
-    // 🟢 EFFECT: LOAD USER (Runs once)
+    // Load User
     useEffect(() => {
         const storedUser = localStorage.getItem("user");
         if (storedUser) setUser(JSON.parse(storedUser));
     }, []);
 
-    // 🟢 EFFECT: TOGGLE THEME & SAVE TO LOCALSTORAGE
+    // Toggle Theme
     useEffect(() => {
         if (isDarkMode) {
             document.documentElement.classList.add('dark');
-            localStorage.setItem("theme", JSON.stringify(true)); // ✅ SAVE IT
+            localStorage.setItem("theme", JSON.stringify(true));
         } else {
             document.documentElement.classList.remove('dark');
-            localStorage.setItem("theme", JSON.stringify(false)); // ✅ SAVE IT
+            localStorage.setItem("theme", JSON.stringify(false));
         }
     }, [isDarkMode]);
+
+    // Generate Notifications
+    useEffect(() => {
+        const fetchAndGenerateNotifications = async () => {
+            if (!BASE_URL) return;
+            try {
+                const token = localStorage.getItem("token");
+                const res = await fetch(`${BASE_URL}/dashboard/budgets`, { headers: { Authorization: token } });
+                const budgetData = await res.json();
+
+                const newNotifs = [];
+
+                if(res.ok) {
+                    budgetData.budgets.forEach(b => {
+                        const spent = parseFloat(b.spent);
+                        const limit = parseFloat(b.limit_amount);
+                        const percentage = (spent / limit) * 100;
+                        if (percentage >= 80 && percentage < 100) {
+                            newNotifs.push({ type: 'alert', category: 'Budget', title: `Approaching Limit: ${b.category_name}`, message: `You've used ${percentage.toFixed(0)}% of your ${b.category_name} budget.` });
+                        } else if (percentage >= 100) {
+                            newNotifs.push({ type: 'warning', category: 'Budget', title: `Budget Exceeded: ${b.category_name}`, message: `You are over budget by ₱${(spent - limit).toLocaleString()}.` });
+                        }
+                    });
+
+                    budgetData.goals.forEach(g => {
+                        if(g.is_pinned) {
+                            const current = parseFloat(g.current_amount);
+                            const target = parseFloat(g.target_amount);
+                            const left = target - current;
+                            if(left > 0) {
+                                newNotifs.push({ type: 'reminder', category: 'Goal', title: `Keep saving for ${g.name}!`, message: `You're ₱${left.toLocaleString()} away from your target.` });
+                            }
+                        }
+                    });
+                }
+                newNotifs.push({ type: 'reminder', category: 'Bill', title: 'Internet Bill Due', message: 'Your PLDT bill is due on Dec 10.' });
+                newNotifs.push({ type: 'warning', category: 'Security', title: 'Unusual Spending Detected', message: 'Large transaction of ₱15,000 detected in "Uncategorized".' });
+                setNotifications(newNotifs);
+            } catch (e) { console.error("Notif Error:", e); }
+        };
+        fetchAndGenerateNotifications();
+    }, [refreshTrigger]);
 
     const handleLogout = () => { localStorage.clear(); navigate("/login"); };
     const handleNavClick = (path) => { navigate(path); setIsMobileMenuOpen(false); };
@@ -290,13 +392,21 @@ export default function Dashboard() {
             {/* Mobile Overlay */}
             {isMobileMenuOpen && <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setIsMobileMenuOpen(false)}></div>}
 
-            {/* Sidebar */}
-            <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 h-full flex flex-col p-4 transition-transform duration-300 md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}>
-                <div className="flex items-center justify-between px-4 py-6 mb-2">
-                    <div className="flex items-center gap-3"><div className="p-2 bg-blue-600 rounded-xl"><Sparkles size={24} className="text-white" /></div><h1 className="text-xl font-bold text-gray-900 dark:text-white">FinScope</h1></div>
+            {/* 🟢 SIDEBAR (Responsive & Collapsible) */}
+            <div className={`
+                fixed inset-y-0 left-0 z-50 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 h-full flex flex-col transition-all duration-300
+                ${isMobileMenuOpen ? 'translate-x-0 w-64 shadow-2xl' : '-translate-x-full'} 
+                ${isSidebarCollapsed ? 'md:w-20' : 'md:w-64'} md:translate-x-0
+            `}>
+                <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'justify-between px-4'} py-6 mb-2 transition-all`}>
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-600 rounded-xl shrink-0"><Sparkles size={24} className="text-white" /></div>
+                        {!isSidebarCollapsed && <h1 className="text-xl font-bold text-gray-900 dark:text-white truncate">FinScope</h1>}
+                    </div>
                     <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-gray-500"><X size={24} /></button>
                 </div>
-                <nav className="flex-1 space-y-1.5">
+
+                <nav className="flex-1 space-y-1.5 px-2">
                     {[
                         { id: 'dashboard', path: APP_ROUTES.HOME, icon: LayoutDashboard, label: 'Overview' },
                         { id: 'wallets', path: APP_ROUTES.WALLETS, icon: Wallet, label: 'Wallets' },
@@ -304,24 +414,66 @@ export default function Dashboard() {
                         { id: 'advisor', path: APP_ROUTES.AI_ADVISOR, icon: Sparkles, label: 'AI Advisor' },
                         { id: 'analytics', path: APP_ROUTES.ANALYTICS, icon: BarChart3, label: 'Analytics' }
                     ].map(item => (
-                        <button key={item.id} onClick={() => handleNavClick(item.path)} className={`flex items-center w-full px-4 py-3 rounded-xl transition-all font-medium ${getActivePath(item.path) ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
-                            <item.icon size={20} className="mr-3" />{item.label}
+                        <button
+                            key={item.id}
+                            onClick={() => handleNavClick(item.path)}
+                            className={`
+                                flex items-center w-full px-3 py-3 rounded-xl transition-all font-medium whitespace-nowrap overflow-hidden
+                                ${getActivePath(item.path) ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}
+                                ${isSidebarCollapsed ? 'justify-center' : ''}
+                            `}
+                            title={isSidebarCollapsed ? item.label : ''}
+                        >
+                            <item.icon size={20} className={isSidebarCollapsed ? '' : 'mr-3'} />
+                            {!isSidebarCollapsed && item.label}
                         </button>
                     ))}
                 </nav>
-                <div className="mt-auto space-y-2 border-t border-gray-100 dark:border-gray-800 pt-4">
-                    <button onClick={() => handleNavClick(APP_ROUTES.SETTINGS)} className="flex items-center w-full px-4 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium"><SettingsIcon size={20} className="mr-3" /> Settings</button>
-                    <button onClick={handleLogout} className="flex items-center w-full px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 font-medium"><LogOut size={20} className="mr-3" /> Sign Out</button>
-                    <button onClick={() => setIsDarkMode(!isDarkMode)} className="flex items-center justify-center w-full py-3 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-medium mt-2">{isDarkMode ? <Sun size={18} className="mr-2" /> : <Moon size={18} className="mr-2" />} Mode</button>
+
+                <div className="mt-auto space-y-2 border-t border-gray-100 dark:border-gray-800 pt-4 px-2">
+                    <button onClick={() => handleNavClick(APP_ROUTES.SETTINGS)} className={`flex items-center w-full px-3 py-3 rounded-xl text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium whitespace-nowrap overflow-hidden ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+                        <SettingsIcon size={20} className={isSidebarCollapsed ? '' : 'mr-3'} />
+                        {!isSidebarCollapsed && "Settings"}
+                    </button>
+
+                    <button onClick={handleLogout} className={`flex items-center w-full px-3 py-3 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 font-medium whitespace-nowrap overflow-hidden ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+                        <LogOut size={20} className={isSidebarCollapsed ? '' : 'mr-3'} />
+                        {!isSidebarCollapsed && "Sign Out"}
+                    </button>
+
+                    <button onClick={() => setIsDarkMode(!isDarkMode)} className={`flex items-center justify-center w-full py-3 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 font-medium mt-2 whitespace-nowrap overflow-hidden`}>
+                        {isDarkMode ? <Sun size={18} className={isSidebarCollapsed ? '' : 'mr-2'} /> : <Moon size={18} className={isSidebarCollapsed ? '' : 'mr-2'} />}
+                        {!isSidebarCollapsed && "Mode"}
+                    </button>
                 </div>
             </div>
 
-            {/* Main Content */}
-            <div className="flex-1 flex flex-col w-full h-screen overflow-hidden relative">
-                <header className="sticky top-0 z-30 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 md:px-8 py-4 flex justify-between md:justify-end items-center gap-6">
-                    <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-gray-600 dark:text-gray-300"><Menu size={24} /></button>
+            {/* 🟢 MAIN CONTENT (Dynamically Resizes) */}
+            <div className={`flex-1 flex flex-col w-full h-screen overflow-hidden relative transition-all duration-300 ${isSidebarCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
+                <header className="sticky top-0 z-30 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 md:px-8 py-4 flex justify-between items-center">
+                    {/* Left Side: Mobile Menu + Desktop Sidebar Toggle */}
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-gray-600 dark:text-gray-300"><Menu size={24} /></button>
+
+                        {/* 🟢 DESKTOP SIDEBAR TOGGLE BUTTON */}
+                        <button
+                            onClick={() => setSidebarCollapsed(!isSidebarCollapsed)}
+                            className="hidden md:flex p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+                            title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+                        >
+                            {isSidebarCollapsed ? <PanelLeftOpen size={20}/> : <PanelLeftClose size={20}/>}
+                        </button>
+                    </div>
+
                     <div className="flex items-center gap-4">
-                        <button onClick={() => setIsNotifOpen(!isNotifOpen)} className="relative text-gray-500 dark:text-gray-400"><Bell size={22} /></button>
+                        <div className="relative">
+                            <button onClick={() => setIsNotifOpen(!isNotifOpen)} className="relative text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition">
+                                <Bell size={22} />
+                                {notifications.length > 0 && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-950"></span>}
+                            </button>
+                            <NotificationPanel isOpen={isNotifOpen} onClose={() => setIsNotifOpen(false)} notifications={notifications} />
+                        </div>
+
                         <div className="relative">
                             <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded-xl transition">
                                 <div className="text-right hidden sm:block"><p className="text-sm font-semibold text-gray-900 dark:text-white">{user.name}</p></div>
