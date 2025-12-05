@@ -6,10 +6,14 @@ const BASE_URL = process.env.REACT_APP_API_URL;
 
 export default function TransferModal({ isOpen, onClose, onSuccess }) {
     const [wallets, setWallets] = useState([]);
+    const [categories, setCategories] = useState([]); // 🟢 1. New State for Categories
+
     const [sourceId, setSourceId] = useState('');
     const [destId, setDestId] = useState('');
+    const [categoryId, setCategoryId] = useState(''); // 🟢 2. New State for Selected Category
     const [amount, setAmount] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -19,16 +23,23 @@ export default function TransferModal({ isOpen, onClose, onSuccess }) {
             setAmount('');
             setSourceId('');
             setDestId('');
-            const fetchWallets = async () => {
+            setCategoryId(''); // Reset category
+
+            const fetchData = async () => {
                 const token = localStorage.getItem("token");
                 try {
-                    // 🟢 UPDATED: Using BASE_URL
-                    const res = await fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } });
-                    const data = await res.json();
-                    if (res.ok) setWallets(data.wallets || []);
+                    // Fetch Wallets
+                    const walletRes = await fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } });
+                    const walletData = await walletRes.json();
+                    if (walletRes.ok) setWallets(walletData.wallets || []);
+
+                    // 🟢 3. Fetch Categories
+                    const catRes = await fetch(`${BASE_URL}/dashboard/categories`, { headers: { Authorization: token } });
+                    if (catRes.ok) setCategories(await catRes.json());
+
                 } catch (e) { console.error(e); }
             };
-            fetchWallets();
+            fetchData();
         }
     }, [isOpen]);
 
@@ -45,13 +56,13 @@ export default function TransferModal({ isOpen, onClose, onSuccess }) {
         try {
             const token = localStorage.getItem("token");
 
-            // 🟢 UPDATED: Using BASE_URL
             const res = await fetch(`${BASE_URL}/dashboard/transfer`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: token },
                 body: JSON.stringify({
                     source_wallet_id: sourceId,
                     dest_wallet_id: destId,
+                    category_id: categoryId || null, // 🟢 4. Send category (or null if empty)
                     amount: parseFloat(amount),
                     date
                 })
@@ -105,7 +116,7 @@ export default function TransferModal({ isOpen, onClose, onSuccess }) {
                             <option value="">Select Source Wallet</option>
                             {wallets.map(w => (
                                 <option key={w.wallet_id} value={w.wallet_id} disabled={w.wallet_id == destId}>
-                                    {w.name} (${Number(w.balance).toLocaleString()})
+                                    {w.name} (₱{Number(w.balance).toLocaleString()})
                                 </option>
                             ))}
                         </select>
@@ -123,7 +134,25 @@ export default function TransferModal({ isOpen, onClose, onSuccess }) {
                             <option value="">Select Destination Wallet</option>
                             {wallets.map(w => (
                                 <option key={w.wallet_id} value={w.wallet_id} disabled={w.wallet_id == sourceId}>
-                                    {w.name} (${Number(w.balance).toLocaleString()})
+                                    {w.name} (₱{Number(w.balance).toLocaleString()})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* 🟢 5. Category Selection (Optional) */}
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Category (Optional)</label>
+                        <select
+                            value={categoryId}
+                            onChange={e => setCategoryId(e.target.value)}
+                            className="w-full p-3 rounded-xl bg-gray-50 dark:bg-gray-700 dark:text-white border border-gray-200 dark:border-gray-600 outline-none focus:ring-2 focus:ring-blue-500"
+                            // Note: No 'required' attribute here
+                        >
+                            <option value="">No Category</option>
+                            {categories.map(c => (
+                                <option key={c.category_id} value={c.category_id}>
+                                    {c.name}
                                 </option>
                             ))}
                         </select>
