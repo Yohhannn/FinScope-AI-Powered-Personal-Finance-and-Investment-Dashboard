@@ -6,7 +6,7 @@ import {
     BarChart3, Settings as SettingsIcon, Sun, Moon, Plus, Bell, User,
     ChevronDown, Lightbulb, ArrowRight, ArrowUpRight, ArrowDownRight,
     CreditCard, LogOut, X, RotateCw, Menu, Star, Target, Loader2,
-    AlertTriangle, Clock, ShieldAlert, CheckCircle2, Trash2, // Added Trash2
+    AlertTriangle, Clock, ShieldAlert, CheckCircle2, Trash2,
     PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 
@@ -52,7 +52,7 @@ const ProgressBar = ({ current, total, color = 'blue' }) => {
     );
 };
 
-// 🟢 UPDATED Notification Panel Component
+// Notification Panel Component
 const NotificationPanel = ({ isOpen, onClose, notifications, onClear }) => {
     if (!isOpen) return null;
 
@@ -63,7 +63,6 @@ const NotificationPanel = ({ isOpen, onClose, notifications, onClear }) => {
                     <h3 className="font-bold text-gray-900 dark:text-white">Notifications</h3>
                     <span className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-0.5 rounded-full">{notifications.length}</span>
                 </div>
-                {/* 🟢 Clear Button */}
                 {notifications.length > 0 && (
                     <button
                         onClick={onClear}
@@ -82,8 +81,8 @@ const NotificationPanel = ({ isOpen, onClose, notifications, onClear }) => {
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {notifications.map((notif, index) => (
-                            <div key={index} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition flex gap-3 items-start">
+                        {notifications.map((notif) => (
+                            <div key={notif.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition flex gap-3 items-start">
                                 <div className={`mt-1 p-2 rounded-full shrink-0 ${
                                     notif.type === 'warning' ? 'bg-red-100 text-red-600 dark:bg-red-900/20' :
                                         notif.type === 'alert' ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/20' :
@@ -320,7 +319,7 @@ export default function Dashboard() {
     const [isNotifOpen, setIsNotifOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-    // 🟢 1. Sidebar Collapse State
+    // Sidebar Collapse State
     const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
 
     const [user, setUser] = useState({ name: 'User' });
@@ -352,7 +351,7 @@ export default function Dashboard() {
         }
     }, [isDarkMode]);
 
-    // 🟢 Generate Notifications (REMOVED MOCK DATA)
+    // 🟢 Generate Notifications with PERSISTENCE CHECK
     useEffect(() => {
         const fetchAndGenerateNotifications = async () => {
             if (!BASE_URL) return;
@@ -361,6 +360,10 @@ export default function Dashboard() {
                 const res = await fetch(`${BASE_URL}/dashboard/budgets`, { headers: { Authorization: token } });
                 const budgetData = await res.json();
 
+                // 🟢 1. Load Dismissed IDs from LocalStorage
+                const dismissedRaw = localStorage.getItem("dismissedNotifications");
+                const dismissedIds = dismissedRaw ? JSON.parse(dismissedRaw) : [];
+
                 const newNotifs = [];
 
                 if(res.ok) {
@@ -368,10 +371,28 @@ export default function Dashboard() {
                         const spent = parseFloat(b.spent);
                         const limit = parseFloat(b.limit_amount);
                         const percentage = (spent / limit) * 100;
-                        if (percentage >= 80 && percentage < 100) {
-                            newNotifs.push({ type: 'alert', category: 'Budget', title: `Approaching Limit: ${b.category_name}`, message: `You've used ${percentage.toFixed(0)}% of your ${b.category_name} budget.` });
-                        } else if (percentage >= 100) {
-                            newNotifs.push({ type: 'warning', category: 'Budget', title: `Budget Exceeded: ${b.category_name}`, message: `You are over budget by ₱${(spent - limit).toLocaleString()}.` });
+
+                        // 🟢 Create Unique IDs
+                        const warnId = `budget-${b.budget_id}-warn`;
+                        const alertId = `budget-${b.budget_id}-alert`;
+
+                        // 🟢 Check if ID is in dismissed list before adding
+                        if (percentage >= 80 && percentage < 100 && !dismissedIds.includes(warnId)) {
+                            newNotifs.push({
+                                id: warnId,
+                                type: 'alert',
+                                category: 'Budget',
+                                title: `Approaching Limit: ${b.category_name}`,
+                                message: `You've used ${percentage.toFixed(0)}% of your ${b.category_name} budget.`
+                            });
+                        } else if (percentage >= 100 && !dismissedIds.includes(alertId)) {
+                            newNotifs.push({
+                                id: alertId,
+                                type: 'warning',
+                                category: 'Budget',
+                                title: `Budget Exceeded: ${b.category_name}`,
+                                message: `You are over budget by ₱${(spent - limit).toLocaleString()}.`
+                            });
                         }
                     });
 
@@ -380,14 +401,21 @@ export default function Dashboard() {
                             const current = parseFloat(g.current_amount);
                             const target = parseFloat(g.target_amount);
                             const left = target - current;
-                            if(left > 0) {
-                                newNotifs.push({ type: 'reminder', category: 'Goal', title: `Keep saving for ${g.name}!`, message: `You're ₱${left.toLocaleString()} away from your target.` });
+                            const goalId = `goal-${g.goal_id}-reminder`;
+
+                            // 🟢 Check if ID is in dismissed list
+                            if(left > 0 && !dismissedIds.includes(goalId)) {
+                                newNotifs.push({
+                                    id: goalId,
+                                    type: 'reminder',
+                                    category: 'Goal',
+                                    title: `Keep saving for ${g.name}!`,
+                                    message: `You're ₱${left.toLocaleString()} away from your target.`
+                                });
                             }
                         }
                     });
                 }
-
-                // 🟢 REMOVED: Mock Bill and Mock Security Alerts
 
                 setNotifications(newNotifs);
             } catch (e) { console.error("Notif Error:", e); }
@@ -395,12 +423,32 @@ export default function Dashboard() {
         fetchAndGenerateNotifications();
     }, [refreshTrigger]);
 
-    const handleLogout = () => { localStorage.clear(); navigate("/login"); };
+    // 🟢 Handle Logout (Cleanup)
+    const handleLogout = () => {
+        localStorage.removeItem("dismissedNotifications"); // Optional: Clear dismissed on logout
+        localStorage.clear();
+        navigate("/login");
+    };
+
     const handleNavClick = (path) => { navigate(path); setIsMobileMenuOpen(false); };
     const getActivePath = (path) => path === APP_ROUTES.HOME ? location.pathname === APP_ROUTES.HOME : location.pathname.startsWith(`/${path}`);
 
-    // 🟢 Handle Clear Notifications
+    // 🟢 Handle Clear Notifications (Persist to LocalStorage)
     const handleClearNotifications = () => {
+        // 1. Get current visible notification IDs
+        const idsToDismiss = notifications.map(n => n.id);
+
+        // 2. Get existing dismissed IDs
+        const existingDismissedRaw = localStorage.getItem("dismissedNotifications");
+        const existingDismissed = existingDismissedRaw ? JSON.parse(existingDismissedRaw) : [];
+
+        // 3. Combine unique IDs
+        const updatedDismissed = [...new Set([...existingDismissed, ...idsToDismiss])];
+
+        // 4. Save to LocalStorage
+        localStorage.setItem("dismissedNotifications", JSON.stringify(updatedDismissed));
+
+        // 5. Clear State
         setNotifications([]);
     };
 
