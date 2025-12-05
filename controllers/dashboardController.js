@@ -97,7 +97,11 @@ const DashboardController = {
     getBudgetHistory: async (req, res) => {
         try {
             const { id } = req.params;
-            const history = await DashboardModel.getBudgetTransactions(id);
+            const userId = req.user.user_id; // 🟢 Get the user ID from the token
+
+            // 🟢 Pass userId to the model
+            const history = await DashboardModel.getBudgetTransactions(id, userId);
+
             res.json(history.rows);
         } catch (err) {
             console.error(err);

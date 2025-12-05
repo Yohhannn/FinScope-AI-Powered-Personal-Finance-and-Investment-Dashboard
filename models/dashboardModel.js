@@ -273,16 +273,23 @@ const DashboardModel = {
         `, [userId]);
     },
 
-    // 🟢 FIX 4: getBudgetTransactions (Explicit column selection)
-    getBudgetTransactions: async (budgetId) => {
-        const budgetRes = await db.query('SELECT * FROM budget WHERE budget_id = $1', [budgetId]);
-        if (budgetRes.rows.length === 0) throw new Error("Budget not found");
+
+// 🟢 SECURE FIX: Filter by User ID to prevent data leakage
+    getBudgetTransactions: async (budgetId, userId) => {
+        // 1. Verify this budget belongs to the logged-in user
+        const budgetRes = await db.query(
+            'SELECT * FROM budget WHERE budget_id = $1 AND user_id = $2',
+            [budgetId, userId]
+        );
+
+        if (budgetRes.rows.length === 0) throw new Error("Budget not found or unauthorized");
         const budget = budgetRes.rows[0];
 
+        // 2. Fetch transactions ONLY for this user
         return db.query(`
             SELECT
                 t.transaction_id, t.name, t.amount, t.transaction_date, t.description,
-                t.type, /* Explicitly naming transaction type */
+                t.type,
                 t.created_at, t.wallet_id, t.category_id,
                 w.name as wallet_name
             FROM transaction t
@@ -290,8 +297,9 @@ const DashboardModel = {
             WHERE t.category_id = $1
               AND t.type = 'expense'
               AND t.transaction_date BETWEEN $2 AND $3
+              AND w.user_id = $4  /* 🔒 CRITICAL FIX: Only show MY wallet transactions */
             ORDER BY t.transaction_date DESC
-        `, [budget.category_id, budget.start_date, budget.end_date]);
+        `, [budget.category_id, budget.start_date, budget.end_date, userId]);
     },
 
     // 🟢 FIX 5: getMonthlyNetFlow (Explicitly name the transaction table in the WHERE clause)

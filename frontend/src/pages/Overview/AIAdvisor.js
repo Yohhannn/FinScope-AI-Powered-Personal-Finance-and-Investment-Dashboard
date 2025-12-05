@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Sparkles, Loader2, Trash2, Upload, X } from 'lucide-react';
-import ReactMarkdown from 'react-markdown'; // 🟢 IMPORT ADDED
+import { Send, Bot, User, Sparkles, Loader2, Trash2, Upload, X, FileWarning } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 // 🚀 NEW: Define the base API URL from the environment variable
 const BASE_URL = process.env.REACT_APP_API_URL;
@@ -11,7 +11,16 @@ const initialMessage = {
     content: "Hello! I'm your FinScope AI Advisor. I have access to your wallets, budgets, and goals. How can I help you optimize your finances today?"
 };
 
-// 🟢 SYSTEM INSTRUCTION (Kept exactly as you defined it)
+// 🟢 NEW: Financial Keywords for Validation (Heuristics)
+// The system will scan the PDF text. If it doesn't find enough of these words, it rejects the file.
+const FINANCIAL_KEYWORDS = [
+    'balance', 'account', 'statement', 'transaction', 'debit', 'credit',
+    'deposit', 'withdrawal', 'amount', 'total', 'due', 'payment',
+    'salary', 'income', 'expense', 'interest', 'tax', 'php', '₱',
+    'bank', 'bill', 'invoice', 'receipt', 'gross', 'net', 'savings', 'budget'
+];
+
+// 🟢 SYSTEM INSTRUCTION
 const SYSTEM_INSTRUCTION = `You are FinScope AI Advisor, a financial expert. Your primary role is to analyze the user's financial data (wallets, budgets, goals) and provide financial advice.
 
 **CONTEXT & LOCALE:**
@@ -70,6 +79,7 @@ export default function AIAdvisor() {
     // PDF/Upload States
     const [pdfContext, setPdfContext] = useState(null);
     const [pdfLoading, setPdfLoading] = useState(false);
+    const [pdfError, setPdfError] = useState(null); // 🟢 NEW: Store validation errors
     const fileInputRef = useRef(null);
 
     // Persist messages to localStorage and auto-scroll
@@ -82,6 +92,21 @@ export default function AIAdvisor() {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
+    // 🟢 NEW: Validation Logic
+    const validateFinancialContent = (text) => {
+        if (!text) return false;
+        const lowerText = text.toLowerCase();
+
+        // Count how many unique financial keywords appear in the text
+        let matchCount = 0;
+        FINANCIAL_KEYWORDS.forEach(word => {
+            if (lowerText.includes(word)) matchCount++;
+        });
+
+        // Threshold: The document must contain at least 3 unique financial keywords to be considered valid
+        return matchCount >= 3;
+    };
+
     const handlePDFUpload = async (event) => {
         const file = event.target.files[0];
         if (!file || file.type !== 'application/pdf') {
@@ -91,12 +116,16 @@ export default function AIAdvisor() {
 
         setPdfLoading(true);
         setPdfContext(null);
+        setPdfError(null); // Reset errors
 
         // --- MOCK PDF EXTRACTION ---
+        // In a real app, use pdfjs-dist here.
         const mockExtraction = () => new Promise(resolve => {
             setTimeout(() => {
                 const reader = new FileReader();
                 reader.onload = () => {
+                    // 🟢 SIMULATED DATA: This string contains keywords like 'income', 'expense', 'receipt', 'investments'
+                    // So this should PASS validation.
                     resolve(`[PDF DATA START] Uploaded file: ${file.name}. This mock data simulates a salary slip for October 2025 (Philippines context). Gross income was ₱35,000. Rent expense receipt shows ₱8,500. Total investments listed are ₱5,000. [PDF DATA END]`);
                 };
                 reader.readAsDataURL(file);
@@ -105,12 +134,23 @@ export default function AIAdvisor() {
 
         try {
             const extractedText = await mockExtraction(file);
-            setPdfContext(extractedText);
-            setMessages(prev => [...prev, { role: 'assistant', content: `Successfully loaded data from: ${file.name}. It is now available for analysis in your next prompt. Please type your query now.` }]);
+
+            // 🟢 STEP 2: Validate Content
+            const isValid = validateFinancialContent(extractedText);
+
+            if (isValid) {
+                setPdfContext(extractedText);
+                setMessages(prev => [...prev, { role: 'assistant', content: `Successfully loaded data from: ${file.name}. It is now available for analysis.` }]);
+            } else {
+                // 🔴 REJECT FILE
+                setPdfError(`The file "${file.name}" does not appear to be a financial document. Analysis cancelled.`);
+                setMessages(prev => [...prev, { role: 'assistant', content: `I analyzed "${file.name}" but it doesn't look like a financial document (e.g., bank statement, receipt). Please upload a valid financial file.` }]);
+                fileInputRef.current.value = null; // Reset input so they can try again
+            }
 
         } catch (error) {
             console.error("PDF Parsing Error:", error);
-            setPdfContext(`[ERROR] Failed to read PDF: ${file.name}.`);
+            setPdfContext(null);
             setMessages(prev => [...prev, { role: 'assistant', content: `Error: Could not process ${file.name}. Please ensure it is a valid PDF financial statement.` }]);
         } finally {
             setPdfLoading(false);
@@ -146,7 +186,7 @@ export default function AIAdvisor() {
         setMessages(prev => [...prev, userMessageToDisplay]);
         setInput('');
         setLoading(true);
-        setPdfContext(null);
+        // Note: We don't clear pdfContext here so user can ask multiple questions about the same PDF.
 
         try {
             const token = localStorage.getItem("token");
@@ -194,10 +234,12 @@ export default function AIAdvisor() {
         setMessages([initialMessage]);
         localStorage.removeItem('aiChatHistory');
         setPdfContext(null);
+        setPdfError(null);
     };
 
     const clearPdfContext = () => {
         setPdfContext(null);
+        setPdfError(null);
         fileInputRef.current.value = null;
         setMessages(prev => [...prev, { role: 'assistant', content: "Uploaded PDF data has been cleared from context." }]);
     };
@@ -275,7 +317,7 @@ export default function AIAdvisor() {
                             </div>
                             <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-2xl rounded-tl-none flex items-center gap-2">
                                 <Loader2 size={16} className="animate-spin text-gray-500" />
-                                <span className="text-sm text-gray-500">{pdfLoading ? 'Parsing PDF file...' : 'Analyzing your finances...'}</span>
+                                <span className="text-sm text-gray-500">{pdfLoading ? 'Scanning document for financial data...' : 'Analyzing your finances...'}</span>
                             </div>
                         </div>
                     )}
@@ -285,13 +327,27 @@ export default function AIAdvisor() {
                 {/* Input Area */}
                 <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
 
+                    {/* 🟢 SUCCESS MESSAGE (Only if data is valid) */}
                     {pdfContext && (
-                        <div className="mb-2 p-2 flex items-center justify-between bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-400 rounded-lg text-sm">
+                        <div className="mb-2 p-2 flex items-center justify-between bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400 rounded-lg text-sm">
                             <span className="font-medium flex items-center">
                                 <Upload size={16} className="mr-2"/>
-                                Data Ready for Analysis.
+                                Data Verified & Ready.
                             </span>
-                            <button onClick={clearPdfContext} className="text-gray-500 hover:text-red-600 dark:text-yellow-400 dark:hover:text-red-400 p-1 rounded-full transition" title="Remove PDF Context">
+                            <button onClick={clearPdfContext} className="text-gray-500 hover:text-red-600 dark:text-green-400 dark:hover:text-red-400 p-1 rounded-full transition" title="Remove PDF Context">
+                                <X size={16} />
+                            </button>
+                        </div>
+                    )}
+
+                    {/* 🔴 ERROR MESSAGE (If Validation Fails) */}
+                    {pdfError && (
+                        <div className="mb-2 p-2 flex items-center justify-between bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400 rounded-lg text-sm animate-in fade-in slide-in-from-bottom-2">
+                            <span className="font-medium flex items-center">
+                                <FileWarning size={16} className="mr-2"/>
+                                {pdfError}
+                            </span>
+                            <button onClick={() => setPdfError(null)} className="text-gray-500 hover:text-red-600 p-1 rounded-full transition">
                                 <X size={16} />
                             </button>
                         </div>
