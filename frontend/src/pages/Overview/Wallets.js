@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     Wallet, Plus, Pencil, CreditCard, Banknote, Coins,
     ArrowUpRight, ArrowDownRight, Search, Filter, ArrowRightLeft, Sparkles, Loader2,
-    ChevronDown, ChevronUp // 🟢 Added Icons for the toggle button
+    ChevronDown, ChevronUp
 } from 'lucide-react';
 
 // --- IMPORTANT: Ensure these paths match your project structure ---
@@ -33,8 +33,8 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
     const [filterType, setFilterType] = useState('all');
     const [showFilter, setShowFilter] = useState(false);
 
-    // 🟢 NEW: View Control State
-    const [showAllTransactions, setShowAllTransactions] = useState(false); // Default to false (show 5)
+    // 🟢 View Control State
+    const [showAllTransactions, setShowAllTransactions] = useState(false);
 
     // 🟢 AI States
     const [aiWalletInsight, setAiWalletInsight] = useState(() => localStorage.getItem('aiWalletInsight') || '');
@@ -55,16 +55,13 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
         setAiWalletInsight('');
         if (!BASE_URL) { setAiLoading(false); return; }
 
-        const currentWallets = walletsData || wallets;
-        const currentNetWorth = netWorth || 0;
-
         try {
             const token = localStorage.getItem("token");
-            const walletSummary = currentWallets.map(w => ({
+            const walletSummary = (walletsData || wallets).map(w => ({
                 name: w.name, type: w.type, balance: w.balance, available: w.available_balance
             }));
 
-            const message = `Analyze this list of user wallets (Total Net Worth: $${currentNetWorth.toLocaleString()}) and provide a 1-sentence assessment of their current liquidity or asset diversification. Wallets: ${JSON.stringify(walletSummary)}`;
+            const message = `Analyze this list of user wallets (Total Net Worth: $${(netWorth || 0).toLocaleString()}) and provide a 1-sentence assessment of their current liquidity or asset diversification. Wallets: ${JSON.stringify(walletSummary)}`;
 
             const res = await fetch(`${BASE_URL}/ai/chat`, {
                 method: "POST",
@@ -81,7 +78,7 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
         finally { setAiLoading(false); }
     };
 
-    // 🟢 1. Data Fetching (UPDATED to fetch ALL transactions)
+    // 🟢 1. Data Fetching
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
@@ -90,7 +87,7 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
             try {
                 const token = localStorage.getItem("token");
 
-                // A. Fetch Dashboard (For Wallets)
+                // A. Fetch Dashboard (for Wallets & fallback transactions)
                 const dashRes = await fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } });
                 const dashData = await dashRes.json();
 
@@ -99,18 +96,22 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
 
                     // 🟢 B. Attempt to Fetch FULL Transaction History
                     try {
-                        const txRes = await fetch(`${BASE_URL}/transactions`, { headers: { Authorization: token } });
+                        const txRes = await fetch(`${BASE_URL}/analytics`, { headers: { Authorization: token } }); // Tried analytics endpoint usually has all
                         if (txRes.ok) {
                             const txData = await txRes.json();
-                            // Assuming backend returns { transactions: [...] } or just [...]
                             setTransactions(Array.isArray(txData) ? txData : txData.transactions || []);
                         } else {
-                            // Fallback: If /transactions endpoint doesn't exist, use the limited list from dashboard
-                            console.warn("Could not fetch full history, using dashboard snapshot.");
-                            setTransactions(dashData.recentTransactions || []);
+                            // Try /transactions if /analytics failed
+                            const txRes2 = await fetch(`${BASE_URL}/transactions`, { headers: { Authorization: token } });
+                            if(txRes2.ok) {
+                                const txData2 = await txRes2.json();
+                                setTransactions(Array.isArray(txData2) ? txData2 : txData2.transactions || []);
+                            } else {
+                                throw new Error("No full history endpoint found");
+                            }
                         }
                     } catch (txError) {
-                        console.warn("Transaction fetch failed, falling back.", txError);
+                        console.warn("Could not fetch full history, using dashboard snapshot (Limit 5).");
                         setTransactions(dashData.recentTransactions || []);
                     }
                 }
@@ -139,16 +140,26 @@ export default function Wallets({ onAddTransaction, onAddWallet, refreshTrigger,
 
     const handleManualRefresh = () => generateWalletInsight(wallets);
 
-    // 🟢 Filter Logic
-    const filteredTransactions = transactions.filter(tx => {
-        const matchesSearch =
-            tx.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (tx.category_name && tx.category_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-            (tx.wallet_name && tx.wallet_name.toLowerCase().includes(searchQuery.toLowerCase()));
-        return matchesSearch && (filterType === 'all' || tx.type === filterType);
-    });
+    // 🟢 Sort & Filter Logic
+    const getProcessedTransactions = () => {
+        // 1. Sort Client-Side (Newest First) to ensure consistency
+        const sorted = [...transactions].sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date));
 
-    // 🟢 Dynamic Display Logic: Show 5 or All based on state
+        // 2. Filter
+        const filtered = sorted.filter(tx => {
+            const matchesSearch =
+                tx.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (tx.category_name && tx.category_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (tx.wallet_name && tx.wallet_name.toLowerCase().includes(searchQuery.toLowerCase()));
+            return matchesSearch && (filterType === 'all' || tx.type === filterType);
+        });
+
+        return filtered;
+    };
+
+    const filteredTransactions = getProcessedTransactions();
+
+    // 🟢 Dynamic Display Logic: Show 5 or All
     const displayedTransactions = showAllTransactions
         ? filteredTransactions
         : filteredTransactions.slice(0, 5);
