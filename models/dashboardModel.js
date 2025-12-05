@@ -1,9 +1,11 @@
 const db = require("../config/db.js");
 
 const DashboardModel = {
-    // ... (Keep existing Read functions) ...
+    // ==========================
+    // 🟢 1. READ OPERATIONS
+    // ==========================
 
-    // 🟢 1. UPDATED: Calculate 'Available Balance' dynamically
+    // 🟢 UPDATED: Calculate 'Available Balance' dynamically
     getWallets: async (userId) => {
         return db.query(`
             SELECT w.*,
@@ -34,10 +36,10 @@ const DashboardModel = {
     },
 
     // ============================================
-    // 🟢 2. UPDATED: SOFT ALLOCATION (No Wallet Deduction)
+    // 🟢 2. COMPLEX TRANSACTIONS (ALLOCATION & TRANSFER)
     // ============================================
 
-// 🟢 PERFORM CONTRIBUTION (Fixed: Added is_contribution = TRUE)
+    // 🟢 PERFORM CONTRIBUTION (Fixed: Added is_contribution = TRUE)
     performGoalContribution: async (userId, goalId, walletId, amount) => {
         const client = await db.pool.connect();
 
@@ -146,6 +148,7 @@ const DashboardModel = {
             client.release();
         }
     },
+
     getAllTransactions: async (userId) => {
         return db.query(`
             SELECT
@@ -162,11 +165,7 @@ const DashboardModel = {
         `, [userId]);
     },
 
-
-
     // 🟢 NEW: Auto-Rollover Expired Budgets
-    // This finds any budget belonging to the user that has ended.
-    // It updates the dates to be the 1st and Last day of the CURRENT month.
     rolloverBudgets: async (userId) => {
         return db.query(`
             UPDATE budget
@@ -256,25 +255,11 @@ const DashboardModel = {
         `, [userId]);
     },
 
-    // 🟢 FIX 3: getAllTransactions (For Analytics - Explicit column selection)
-    getAllTransactions: async (userId) => {
-        return db.query(`
-            SELECT
-                t.transaction_id, t.name, t.amount, t.transaction_date, t.description,
-                t.type, /* Explicitly select transaction type */
-                t.created_at, t.wallet_id, t.category_id,
-                w.name as wallet_name,
-                c.name as category_name
-            FROM transaction t
-                     JOIN wallet w ON t.wallet_id = w.wallet_id
-                     LEFT JOIN category c ON t.category_id = c.category_id
-            WHERE w.user_id = $1
-            ORDER BY t.transaction_date ASC
-        `, [userId]);
-    },
+    // ==========================================
+    // 🟢 3. BUDGETS & GOALS (FIXED QUERIES)
+    // ==========================================
 
-
-// 🟢 SECURE FIX: Filter by User ID to prevent data leakage
+    // 🟢 FIX 4: getBudgetTransactions (Secure Filtering)
     getBudgetTransactions: async (budgetId, userId) => {
         // 1. Verify this budget belongs to the logged-in user
         const budgetRes = await db.query(
@@ -314,20 +299,57 @@ const DashboardModel = {
               AND t.transaction_date >= date_trunc('month', CURRENT_DATE)
         `, [userId]);
     },
+
+    // 🟢 CRITICAL FIX: getPinnedBudgets
+    // We added: JOIN wallet w ON t.wallet_id = w.wallet_id AND w.user_id = b.user_id
     getPinnedBudgets: async (userId) => {
-        return db.query(`SELECT b.*, c.name as category_name, (SELECT COALESCE(SUM(ABS(amount)), 0) FROM transaction t WHERE t.category_id = b.category_id AND t.type = 'expense' AND t.transaction_date BETWEEN b.start_date AND b.end_date) as spent FROM budget b JOIN category c ON b.category_id = c.category_id WHERE b.user_id = $1 AND b.is_pinned = TRUE LIMIT 4`, [userId]);
+        return db.query(`
+            SELECT b.*, c.name as category_name, 
+            (
+                SELECT COALESCE(SUM(ABS(t.amount)), 0) 
+                FROM transaction t 
+                JOIN wallet w ON t.wallet_id = w.wallet_id
+                WHERE t.category_id = b.category_id 
+                AND t.type = 'expense' 
+                AND t.transaction_date BETWEEN b.start_date AND b.end_date
+                AND w.user_id = b.user_id -- 🔒 SECURITY CHECK
+            ) as spent 
+            FROM budget b 
+            JOIN category c ON b.category_id = c.category_id 
+            WHERE b.user_id = $1 AND b.is_pinned = TRUE 
+            LIMIT 4
+        `, [userId]);
     },
+
     getPinnedGoals: async (userId) => {
         return db.query('SELECT * FROM saving_goal WHERE user_id = $1 AND is_pinned = TRUE LIMIT 4', [userId]);
     },
-    getBudgets: async (userId) => {
-        return db.query(`SELECT b.*, c.name as category_name, (SELECT COALESCE(SUM(ABS(amount)), 0) FROM transaction t WHERE t.category_id = b.category_id AND t.type = 'expense' AND t.transaction_date BETWEEN b.start_date AND b.end_date) as spent FROM budget b JOIN category c ON b.category_id = c.category_id WHERE b.user_id = $1 ORDER BY b.budget_id DESC`, [userId]);
-    },
 
+    // 🟢 CRITICAL FIX: getBudgets (The "Ghost Transaction" Fix)
+    // We added: JOIN wallet w ON t.wallet_id = w.wallet_id AND w.user_id = b.user_id
+    getBudgets: async (userId) => {
+        return db.query(`
+            SELECT b.*, c.name as category_name,
+                   (
+                       SELECT COALESCE(SUM(ABS(t.amount)), 0)
+                       FROM transaction t
+                                JOIN wallet w ON t.wallet_id = w.wallet_id
+                       WHERE t.category_id = b.category_id
+                         AND t.type = 'expense'
+                         AND t.transaction_date BETWEEN b.start_date AND b.end_date
+                         AND w.user_id = b.user_id -- 🔒 SECURITY CHECK
+                   ) as spent
+            FROM budget b
+                     JOIN category c ON b.category_id = c.category_id
+            WHERE b.user_id = $1
+            ORDER BY b.budget_id DESC
+        `, [userId]);
+    },
 
     getGoals: async (userId) => {
         return db.query('SELECT * FROM saving_goal WHERE user_id = $1 ORDER BY goal_id DESC', [userId]);
     },
+
     getGoalTransactions: async (goalId) => {
         return db.query(`
             SELECT t.*, w.name as wallet_name
@@ -337,18 +359,20 @@ const DashboardModel = {
             ORDER BY t.created_at DESC
         `, [goalId]);
     },
+
+    // ==========================================
+    // 🟢 4. STANDARD CRUD OPERATIONS
+    // ==========================================
+
     getMarketWatchlist: async (userId) => {
         return db.query(`SELECT a.* FROM asset a JOIN user_watchlist uw ON a.asset_id = uw.asset_id WHERE uw.user_id = $1`, [userId]);
     },
     getCategories: async (userId) => {
         return db.query('SELECT * FROM category WHERE user_id = $1 OR user_id = 1 ORDER BY category_id ASC', [userId]);
     },
-
-    // 🟢 NEW FUNCTION: Get Category Owner ID (Moved from Controller)
     getCategoryOwnerId: async (id) => {
         return db.query('SELECT user_id FROM category WHERE category_id = $1', [id]);
     },
-
     getTransactionById: async (id) => {
         return db.query('SELECT * FROM transaction WHERE transaction_id = $1', [id]);
     },
@@ -396,18 +420,14 @@ const DashboardModel = {
         );
         return res.rows.length > 0;
     },
-
-    // 🟢 NEW FUNCTION: Check for Duplicate on Update (Moved from Controller)
     checkBudgetExistsForUpdate: async (userId, categoryId, budgetId) => {
         return db.query(
             `SELECT * FROM budget WHERE user_id = $1 AND category_id = $2 AND budget_id != $3`,
             [userId, categoryId, budgetId]
         );
     },
-
-    // 🟢 UPDATED: Include category_id in the UPDATE query
     updateBudget: async (id, data) => {
-        const { limit_amount, start_date, end_date, category_id } = data; // Added category_id
+        const { limit_amount, start_date, end_date, category_id } = data;
         return db.query(
             `UPDATE budget SET limit_amount=$1, start_date=$2, end_date=$3, category_id=$4 WHERE budget_id=$5 RETURNING *`,
             [limit_amount, start_date, end_date, category_id, id]
@@ -445,7 +465,6 @@ const DashboardModel = {
         return db.query(`UPDATE category SET name=$1 WHERE category_id=$2 RETURNING *`, [name, id]);
     },
     deleteCategory: async (id, userId) => {
-        // 🟢 Validate User ID ensures they own it
         return db.query('DELETE FROM category WHERE category_id = $1 AND user_id = $2', [id, userId]);
     }
 };
