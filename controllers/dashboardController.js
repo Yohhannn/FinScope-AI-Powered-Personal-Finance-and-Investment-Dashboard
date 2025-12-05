@@ -500,11 +500,18 @@ const DashboardController = {
     addCategory: async (req, res) => {
         try {
             const { name } = req.body;
-            const result = await DashboardModel.createCategory({ name, userId: req.user.user_id });
+            const userId = req.user.user_id;
+
+            // 1. Check for duplicates in database before creating
+            const existing = await DashboardModel.checkCategoryExists(name, userId);
+            if (existing) {
+                return res.status(400).json({ error: "Category already exists" });
+            }
+
+            const result = await DashboardModel.createCategory({ name, userId });
             res.json(result.rows[0]);
         } catch (err) {
-            console.error(err.message);
-            res.status(500).json({ error: err.message });
+            // ...
         }
     },
 

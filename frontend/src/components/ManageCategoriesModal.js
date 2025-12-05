@@ -13,8 +13,6 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
     const fetchCats = async () => {
         try {
             const token = localStorage.getItem("token");
-
-            // 🟢 UPDATED: Using BASE_URL
             const res = await fetch(`${BASE_URL}/dashboard/categories`, {
                 headers: { Authorization: token }
             });
@@ -26,23 +24,36 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
         if(isOpen) {
             fetchCats();
             setError('');
+            setNewName(''); // Clear input when opening
         }
     }, [isOpen]);
 
-    // 2. Add Category
+    // 🟢 2. Add Category (With Duplicate Validation)
     const handleAdd = async (e) => {
         e.preventDefault();
         setError('');
-        if(!newName) return;
+
+        const trimmedName = newName.trim();
+        if(!trimmedName) return;
+
+        // 🔍 VALIDATION: Check for duplicates
+        // We use .some() to see if any category matches the new name (case-insensitive)
+        const exists = categories.some(c => c.name.toLowerCase() === trimmedName.toLowerCase());
+
+        if (exists) {
+            setError(`'${trimmedName}' already exists.`);
+            return; // 🛑 Stop here, do not send to server
+        }
+
         try {
             const token = localStorage.getItem("token");
 
-            // 🟢 UPDATED: Using BASE_URL
             const res = await fetch(`${BASE_URL}/dashboard/category`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Authorization: token },
-                body: JSON.stringify({ name: newName })
+                body: JSON.stringify({ name: trimmedName })
             });
+
             if(res.ok) {
                 setNewName('');
                 fetchCats();
@@ -53,15 +64,14 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
         } catch(e) { console.error(e); }
     };
 
-    // 🟢 3. Delete Category (Updated Logic)
+    // 3. Delete Category
     const handleDelete = async (id) => {
         if(!window.confirm("Delete this category?")) return;
-        setError(''); // Clear previous errors
+        setError('');
 
         try {
             const token = localStorage.getItem("token");
 
-            // 🟢 UPDATED: Using BASE_URL
             const res = await fetch(`${BASE_URL}/dashboard/category/${id}`, {
                 method: "DELETE",
                 headers: { Authorization: token }
@@ -70,7 +80,6 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
             if(res.ok) {
                 fetchCats();
             } else {
-                // 🟢 SHOW ERROR if backend refuses (e.g., category in use)
                 const data = await res.json();
                 alert(data.error || "Could not delete category.");
             }
@@ -87,7 +96,7 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
 
                 {/* Error Banner */}
                 {error && (
-                    <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg flex items-center">
+                    <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg flex items-center animate-pulse">
                         <AlertTriangle size={16} className="mr-2 flex-shrink-0" />
                         {error}
                     </div>
@@ -97,9 +106,12 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
                 <form onSubmit={handleAdd} className="flex gap-2 mb-4">
                     <input
                         value={newName}
-                        onChange={e => setNewName(e.target.value)}
+                        onChange={e => {
+                            setNewName(e.target.value);
+                            if(error) setError(''); // Clear error when user starts typing again
+                        }}
                         placeholder="New Category..."
-                        className="flex-1 p-2.5 rounded-xl bg-gray-100 dark:bg-gray-700 dark:text-white border-transparent focus:border-blue-500 outline-none"
+                        className={`flex-1 p-2.5 rounded-xl bg-gray-100 dark:bg-gray-700 dark:text-white border-2 focus:border-blue-500 outline-none ${error ? 'border-red-500' : 'border-transparent'}`}
                     />
                     <button type="submit" className="bg-blue-600 text-white p-2.5 rounded-xl hover:bg-blue-700 transition"><Plus /></button>
                 </form>
@@ -112,7 +124,7 @@ export default function ManageCategoriesModal({ isOpen, onClose }) {
                         <div key={c.category_id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-transparent hover:border-gray-200 dark:hover:border-gray-600 transition">
                             <span className="text-gray-900 dark:text-white font-medium">{c.name}</span>
 
-                            {/* Only allow deleting if it belongs to the user (assuming user_id 1 is system/default) */}
+                            {/* Only allow deleting if it belongs to the user */}
                             {c.user_id !== 1 ? (
                                 <button onClick={() => handleDelete(c.category_id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition">
                                     <Trash2 size={18}/>
