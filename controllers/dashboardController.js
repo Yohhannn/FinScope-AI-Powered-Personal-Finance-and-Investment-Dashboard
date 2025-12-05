@@ -348,6 +348,7 @@ const DashboardController = {
     // ==========================
 
     // 🟢 ADD GOAL (Refactored to use createGoalTransaction in model)
+// 🟢 ADD GOAL (Updated to handle Transaction Log + Wallet Deduction)
     addGoal: async (req, res) => {
         try {
             const { name, target_amount, current_amount, wallet_id } = req.body;
@@ -359,6 +360,7 @@ const DashboardController = {
                 const wallet = await DashboardModel.getWalletById(wallet_id, userId);
                 if (wallet.rows.length === 0) return res.status(404).json({ error: "Wallet not found" });
 
+                // Use available_balance or balance depending on your preference
                 const availableBalance = parseFloat(wallet.rows[0].available_balance ?? wallet.rows[0].balance);
 
                 if (initialSave > availableBalance) {
@@ -370,22 +372,34 @@ const DashboardController = {
 
             // 2. Create the Goal
             const newGoalResult = await DashboardModel.createGoal({
-                userId, name, target_amount: parseFloat(target_amount), current_amount: initialSave, wallet_id
+                userId,
+                name,
+                target_amount: parseFloat(target_amount),
+                current_amount: initialSave,
+                wallet_id
             });
             const newGoal = newGoalResult.rows[0];
 
-            // 🟢 3. Record initial save using model function
+            // 🟢 3. Record Initial Save AND Update Wallet
             if (initialSave > 0 && wallet_id) {
+                // A. Create the Transaction Log Entry
                 await DashboardModel.createGoalTransaction(
                     initialSave,
                     newGoal.goal_id,
                     wallet_id,
                     true // is_contribution = TRUE
                 );
+
+                // B. DEDUCT the money from the Wallet (Crucial Step!)
+                // We use negative Math.abs to ensure we subtract
+                await DashboardModel.updateWalletBalance(parseInt(wallet_id), -Math.abs(initialSave));
             }
 
             res.json(newGoal);
-        } catch (err) { console.error(err); res.status(500).json({ error: err.message }); }
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ error: err.message });
+        }
     },
 
     // 🟢 UPDATE GOAL
