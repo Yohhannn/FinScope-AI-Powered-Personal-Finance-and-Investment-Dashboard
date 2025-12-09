@@ -4,7 +4,7 @@ import {
     Plus, Tags, Pencil, Star, TrendingUp, Target,
     CreditCard, Wallet, Banknote, Coins, ArrowUpRight, Lightbulb, Loader2
 } from 'lucide-react';
-import { Card, ProgressBar } from '../../components/DashboardUI';
+import { Card } from '../../components/DashboardUI';
 import BudgetModal from '../../components/BudgetModal';
 import GoalModal from '../../components/GoalModal';
 import ManageCategoriesModal from '../../components/ManageCategoriesModal';
@@ -176,8 +176,8 @@ export default function BudgetGoals({ setCurrentPage }) {
                 </div>
             </div>
 
-            {/* AI Insight Card */}
-            <Card className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/10 dark:to-blue-900/10 border-green-100 dark:border-green-800">
+            {/* AI Insight Card - Fixed Background Bleed */}
+            <Card className="bg-white dark:bg-gray-800 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/10 dark:to-blue-900/10 border-green-100 dark:border-green-800">
                 <div className="flex items-start gap-4">
                     <div className="p-3 bg-green-100 dark:bg-green-900/50 rounded-2xl text-green-600 dark:text-green-400"><Lightbulb size={24} /></div>
                     <div className="flex-1">
@@ -235,7 +235,10 @@ export default function BudgetGoals({ setCurrentPage }) {
                                     <button onClick={() => openEditBudget(budget)} className="p-2 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><Pencil size={16}/></button>
                                 </div>
                                 <div className="mb-4"><div className="flex justify-between items-start mb-2"><h4 className="text-lg font-bold text-gray-900 dark:text-white">{budget.category_name}</h4>{budget.is_pinned && <Star size={14} className="text-yellow-500 absolute top-6 right-16 sm:right-20" fill="currentColor" />}</div><p className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">₱{spent.toLocaleString()}<span className="text-base font-medium text-gray-400 dark:text-gray-500"> / ₱{limit.toLocaleString()}</span></p></div>
-                                <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3 mb-2 overflow-hidden"><div className={`h-3 rounded-full transition-all duration-500 ${isOver ? 'bg-red-500' : 'bg-blue-600'}`} style={{ width: `${percentage}%` }}></div></div>
+                                {/* Fixed Progress Bar Artifacts: Removed rounded-full from inner div */}
+                                <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3 mb-2 overflow-hidden">
+                                    <div className={`h-3 transition-all duration-500 ${isOver ? 'bg-red-500' : 'bg-blue-600'}`} style={{ width: `${percentage}%` }}></div>
+                                </div>
                                 <div className="flex justify-between items-center text-xs font-medium"><span className={`${isOver ? 'text-red-500' : 'text-green-500'}`}>{isOver ? `Over by ₱${(spent - limit).toLocaleString()}` : `₱${(limit - spent).toLocaleString()} remaining`}</span><span className="text-gray-400">{(percentage).toFixed(0)}%</span></div>
                             </div>
                         );
@@ -259,8 +262,12 @@ export default function BudgetGoals({ setCurrentPage }) {
                                     <button onClick={() => openEditGoal(goal)} className="p-2 text-gray-400 hover:text-green-600 dark:hover:text-green-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><Pencil size={16}/></button>
                                 </div>
                                 <div className="mb-4"><div className="flex justify-between items-start mb-2"><h4 className="text-lg font-bold text-gray-900 dark:text-white">{goal.name}</h4>{goal.is_pinned && <Star size={14} className="text-yellow-500 absolute top-6 right-16 sm:right-20" fill="currentColor" />}</div><p className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">₱{current.toLocaleString()}<span className="text-base font-medium text-gray-400 dark:text-gray-500"> / ₱{target.toLocaleString()}</span></p></div>
-                                <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3 mb-4 overflow-hidden"><div className="bg-green-500 h-3 rounded-full transition-all duration-500" style={{ width: `${percentage}%` }}></div></div>
-                                <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-50 dark:border-gray-700/50">
+                                {/* Fixed Progress Bar Artifacts */}
+                                <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3 mb-4 overflow-hidden">
+                                    <div className="bg-green-500 h-3 transition-all duration-500" style={{ width: `${percentage}%` }}></div>
+                                </div>
+                                {/* Fixed White Line on Border: Changed border-gray-50 to border-gray-100 and simplified dark border */}
+                                <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-100 dark:border-gray-700">
                                     <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400"><span className="text-green-600 dark:text-green-400 mr-1">{(percentage).toFixed(0)}%</span> Achieved</div>
                                     <button onClick={(e) => { e.stopPropagation(); openContribute(goal); }} className="flex items-center text-xs font-bold text-green-600 hover:text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30 px-3 py-1.5 rounded-lg transition"><Plus size={14} className="mr-1"/> Modify Funds</button>
                                 </div>
@@ -271,7 +278,7 @@ export default function BudgetGoals({ setCurrentPage }) {
                 </div>
             </section>
 
-            {/* 🟢 FIXED: Conditional Rendering for Modals ensures they reset when closed */}
+            {/* Modals */}
             {budgetModalOpen && (
                 <BudgetModal isOpen={budgetModalOpen} onClose={() => setBudgetModalOpen(false)} onSuccess={fetchAllData} budget={selectedBudget} />
             )}
