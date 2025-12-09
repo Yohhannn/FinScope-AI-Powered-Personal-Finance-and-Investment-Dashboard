@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Sparkles, Loader2, Trash2, Upload, X, FileWarning, Lightbulb } from 'lucide-react';
+import { Send, Bot, User, Sparkles, Loader2, Trash2, Upload, X, FileWarning, Lightbulb, ArrowRight, TrendingUp, ShieldCheck, PieChart } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 // 🚀 NEW: Define the base API URL from the environment variable
@@ -17,16 +17,6 @@ const FINANCIAL_KEYWORDS = [
     'deposit', 'withdrawal', 'amount', 'total', 'due', 'payment',
     'salary', 'income', 'expense', 'interest', 'tax', 'php', '₱',
     'bank', 'bill', 'invoice', 'receipt', 'gross', 'net', 'savings', 'budget'
-];
-
-// 🟢 NEW: Suggestion Chips (Quick Actions)
-const SUGGESTION_CHIPS = [
-    "Analyze my spending trends",
-    "How can I save more money?",
-    "Create a monthly budget plan",
-    "Explain the 50/30/20 rule",
-    "Am I overspending on food?",
-    "Suggest an investment strategy"
 ];
 
 // 🟢 SYSTEM INSTRUCTION
@@ -91,14 +81,89 @@ export default function AIAdvisor() {
     const [pdfError, setPdfError] = useState(null);
     const fileInputRef = useRef(null);
 
+    // 🟢 NEW: Dynamic Suggestions State
+    const [suggestions, setSuggestions] = useState([]);
+
     // Persist messages to localStorage and auto-scroll
     useEffect(() => {
         localStorage.setItem('aiChatHistory', JSON.stringify(messages));
         scrollToBottom();
-    }, [messages]);
+        // 🟢 TRIGGER: Update suggestions based on the latest context
+        updateSuggestions();
+    }, [messages, pdfContext]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    // 🟢 NEW: Intelligent Suggestion Logic
+    // This function analyzes the last message to determine the next logical steps
+    const updateSuggestions = () => {
+        // 1. If PDF is uploaded, prioritize document questions
+        if (pdfContext) {
+            setSuggestions([
+                { text: "Summarize this document", icon: <FileWarning size={14} /> },
+                { text: "Extract total expenses", icon: <TrendingUp size={14} /> },
+                { text: "Are there any suspicious charges?", icon: <ShieldCheck size={14} /> },
+                { text: "Convert to budget plan", icon: <PieChart size={14} /> }
+            ]);
+            return;
+        }
+
+        const lastMsg = messages[messages.length - 1];
+
+        // 2. Initial State (Welcome)
+        if (messages.length === 1) {
+            setSuggestions([
+                { text: "Analyze my spending trends", icon: <TrendingUp size={14} /> },
+                { text: "Create a monthly budget", icon: <PieChart size={14} /> },
+                { text: "How can I save more?", icon: <Sparkles size={14} /> },
+                { text: "Explain the 50/30/20 rule", icon: <Lightbulb size={14} /> }
+            ]);
+            return;
+        }
+
+        // 3. Contextual Analysis based on Keywords in the LAST AI RESPONSE
+        if (lastMsg.role === 'assistant') {
+            const content = lastMsg.content.toLowerCase();
+
+            if (content.includes('budget') || content.includes('limit')) {
+                setSuggestions([
+                    { text: "Adjust my budget limits", icon: <PieChart size={14} /> },
+                    { text: "Am I overspending?", icon: <FileWarning size={14} /> },
+                    { text: "Set a savings goal", icon: <TrendingUp size={14} /> }
+                ]);
+            }
+            else if (content.includes('invest') || content.includes('stock') || content.includes('mp2')) {
+                setSuggestions([
+                    { text: "What are the risks?", icon: <ShieldCheck size={14} /> },
+                    { text: "Best beginner investments PH", icon: <Sparkles size={14} /> },
+                    { text: "Explain Compound Interest", icon: <Lightbulb size={14} /> }
+                ]);
+            }
+            else if (content.includes('debt') || content.includes('loan') || content.includes('bill')) {
+                setSuggestions([
+                    { text: "Create a debt repayment plan", icon: <TrendingUp size={14} /> },
+                    { text: "Should I pay highest interest first?", icon: <Lightbulb size={14} /> },
+                    { text: "Consolidate my debts", icon: <PieChart size={14} /> }
+                ]);
+            }
+            else if (content.includes('savings') || content.includes('fund')) {
+                setSuggestions([
+                    { text: "Where should I keep my emergency fund?", icon: <ShieldCheck size={14} /> },
+                    { text: "High interest digital banks PH", icon: <TrendingUp size={14} /> },
+                    { text: "Auto-deduct savings", icon: <Sparkles size={14} /> }
+                ]);
+            }
+            else {
+                // Fallback / Generic Continuation
+                setSuggestions([
+                    { text: "Tell me more details", icon: <ArrowRight size={14} /> },
+                    { text: "Give me an example", icon: <Lightbulb size={14} /> },
+                    { text: "Summarize this", icon: <FileWarning size={14} /> }
+                ]);
+            }
+        }
     };
 
     // 🟢 Validation Logic
@@ -161,11 +226,9 @@ export default function AIAdvisor() {
     };
 
     // 🟢 UPDATED: handleSend now accepts an optional manualText argument
-    // This allows chips to auto-send messages.
     const handleSend = async (e, manualText = null) => {
         if (e) e.preventDefault();
 
-        // Use manualText if provided, otherwise use state input
         let displayUserMessage = manualText || input.trim();
 
         if (!displayUserMessage && !pdfContext) return;
@@ -187,7 +250,7 @@ export default function AIAdvisor() {
 
         const userMessageToDisplay = { role: 'user', content: displayUserMessage };
         setMessages(prev => [...prev, userMessageToDisplay]);
-        setInput(''); // Clear input
+        setInput('');
         setLoading(true);
 
         try {
@@ -295,11 +358,11 @@ export default function AIAdvisor() {
                                 }`}>
                                     <ReactMarkdown
                                         components={{
-                                            strong: ({node, ...props}) => <span className="font-bold" {...props} />,
-                                            ul: ({node, ...props}) => <ul className="list-disc pl-4 mt-2 mb-2" {...props} />,
-                                            ol: ({node, ...props}) => <ol className="list-decimal pl-4 mt-2 mb-2" {...props} />,
-                                            li: ({node, ...props}) => <li className="mb-1" {...props} />,
-                                            p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                                            strong: ({ node, ...props }) => <span className="font-bold" {...props} />,
+                                            ul: ({ node, ...props }) => <ul className="list-disc pl-4 mt-2 mb-2" {...props} />,
+                                            ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mt-2 mb-2" {...props} />,
+                                            li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+                                            p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
                                         }}
                                     >
                                         {msg.content}
@@ -331,7 +394,7 @@ export default function AIAdvisor() {
                     {pdfContext && (
                         <div className="mb-3 p-2 flex items-center justify-between bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400 rounded-lg text-sm">
                             <span className="font-medium flex items-center">
-                                <Upload size={16} className="mr-2"/>
+                                <Upload size={16} className="mr-2" />
                                 Data Verified & Ready.
                             </span>
                             <button onClick={clearPdfContext} className="text-gray-500 hover:text-red-600 dark:text-green-400 dark:hover:text-red-400 p-1 rounded-full transition" title="Remove PDF Context">
@@ -344,7 +407,7 @@ export default function AIAdvisor() {
                     {pdfError && (
                         <div className="mb-3 p-2 flex items-center justify-between bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400 rounded-lg text-sm animate-in fade-in slide-in-from-bottom-2">
                             <span className="font-medium flex items-center">
-                                <FileWarning size={16} className="mr-2"/>
+                                <FileWarning size={16} className="mr-2" />
                                 {pdfError}
                             </span>
                             <button onClick={() => setPdfError(null)} className="text-gray-500 hover:text-red-600 p-1 rounded-full transition">
@@ -353,18 +416,24 @@ export default function AIAdvisor() {
                         </div>
                     )}
 
-                    {/* 🟢 NEW: Suggestion Chips */}
+                    {/* 🟢 NEW: Dynamic & Advanced Suggestion Chips */}
                     {/* Only show if not loading and user hasn't typed much yet */}
                     {!loading && !pdfLoading && input.length === 0 && (
-                        <div className="flex gap-2 overflow-x-auto pb-3 mb-1 custom-scrollbar">
-                            {SUGGESTION_CHIPS.map((chip, idx) => (
+                        <div className="flex gap-2 overflow-x-auto pb-3 mb-1 custom-scrollbar mask-gradient">
+                            {suggestions.map((chip, idx) => (
                                 <button
                                     key={idx}
-                                    onClick={() => handleSend(null, chip)}
-                                    className="flex items-center whitespace-nowrap px-3 py-1.5 bg-gray-100 dark:bg-gray-800 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400 border border-gray-200 dark:border-gray-700 rounded-full text-xs font-medium text-gray-600 dark:text-gray-300 transition-colors"
+                                    onClick={() => handleSend(null, chip.text)}
+                                    className="group flex items-center whitespace-nowrap px-4 py-2 bg-gray-50 dark:bg-gray-800/80 backdrop-blur-sm
+                                             border border-gray-200 dark:border-gray-700 rounded-2xl text-xs font-medium text-gray-600 dark:text-gray-300
+                                             hover:border-blue-300 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600
+                                             dark:hover:text-blue-300 transition-all duration-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 animate-in slide-in-from-bottom-2 fade-in fill-mode-both"
+                                    style={{ animationDelay: `${idx * 100}ms` }}
                                 >
-                                    <Lightbulb size={12} className="mr-1.5 opacity-70" />
-                                    {chip}
+                                    <span className="mr-2 p-1 bg-white dark:bg-gray-700 rounded-full group-hover:bg-blue-200 dark:group-hover:bg-blue-800 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 transition-colors">
+                                        {chip.icon}
+                                    </span>
+                                    {chip.text}
                                 </button>
                             ))}
                         </div>
