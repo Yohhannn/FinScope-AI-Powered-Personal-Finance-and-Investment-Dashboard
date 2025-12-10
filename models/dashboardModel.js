@@ -146,7 +146,7 @@ const DashboardModel = {
         }
     },
 
-    // 🟢 🚀 UPDATED: Handle Completion AND Reactivation (Refund)
+    // 🟢 🚀 FIXED: Removed 'user_id' from transaction insert
     performGoalCompletion: async (userId, goalId, status) => {
         const client = await db.pool.connect();
         try {
@@ -172,11 +172,11 @@ const DashboardModel = {
                     // Deduct
                     await client.query('UPDATE wallet SET balance = balance - $1 WHERE wallet_id = $2', [cost, goal.wallet_id]);
 
-                    // Log Expense
+                    // Log Expense (FIXED: Removed user_id)
                     await client.query(`
-                        INSERT INTO transaction (user_id, wallet_id, amount, type, description, transaction_date, name)
-                        VALUES ($1, $2, $3, 'expense', $4, NOW(), 'Goal Completed')
-                    `, [userId, goal.wallet_id, cost, `Goal Completed: ${goal.name}`]);
+                        INSERT INTO transaction (wallet_id, amount, type, description, transaction_date, name)
+                        VALUES ($1, $2, 'expense', $3, NOW(), 'Goal Completed')
+                    `, [goal.wallet_id, cost, `Goal Completed: ${goal.name}`]);
                 }
             }
 
@@ -192,11 +192,11 @@ const DashboardModel = {
                         // Refund (Add back)
                         await client.query('UPDATE wallet SET balance = balance + $1 WHERE wallet_id = $2', [refundAmount, goal.wallet_id]);
 
-                        // Log Income (Refund)
+                        // Log Income (Refund) (FIXED: Removed user_id)
                         await client.query(`
-                            INSERT INTO transaction (user_id, wallet_id, amount, type, description, transaction_date, name)
-                            VALUES ($1, $2, $3, 'income', $4, NOW(), 'Goal Reactivated')
-                        `, [userId, goal.wallet_id, refundAmount, `Refund: Goal ${goal.name} reactivated`]);
+                            INSERT INTO transaction (wallet_id, amount, type, description, transaction_date, name)
+                            VALUES ($1, $2, 'income', $3, NOW(), 'Goal Reactivated')
+                        `, [goal.wallet_id, refundAmount, `Refund: Goal ${goal.name} reactivated`]);
                     }
                 }
             }
