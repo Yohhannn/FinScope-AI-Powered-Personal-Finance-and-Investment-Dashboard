@@ -473,6 +473,15 @@ const DashboardModel = {
         return res.rows.length > 0;
     },
 
+    updateGoalStatus: async (goalId, status) => {
+        return db.query(`
+            UPDATE saving_goal 
+            SET status = $1 
+            WHERE goal_id = $2 
+            RETURNING *
+        `, [status, goalId]);
+    },
+
     updateCategory: async (id, name) => {
         return db.query(`UPDATE category SET name=$1 WHERE category_id=$2 RETURNING *`, [name, id]);
     },

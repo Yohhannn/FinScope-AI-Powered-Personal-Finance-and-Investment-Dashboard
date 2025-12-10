@@ -401,6 +401,30 @@ const DashboardController = {
             res.status(500).json({ error: err.message });
         }
     },
+    updateGoalStatus: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { status } = req.body; // Expecting 'active', 'completed', or 'archived'
+
+            // Optional: Validate status against allowed ENUM values
+            const allowedStatuses = ['active', 'completed', 'archived'];
+            if (!allowedStatuses.includes(status)) {
+                return res.status(400).json({ error: "Invalid status value" });
+            }
+
+            // Call the model to update the database
+            const result = await DashboardModel.updateGoalStatus(id, status);
+
+            if (result.rowCount === 0) {
+                return res.status(404).json({ error: "Goal not found" });
+            }
+
+            res.json({ success: true, goal: result.rows[0] });
+        } catch (err) {
+            console.error("Update Goal Status Error:", err.message);
+            res.status(500).json({ error: "Server Error" });
+        }
+    },
 
     // 🟢 UPDATE GOAL
     updateGoal: async (req, res) => {

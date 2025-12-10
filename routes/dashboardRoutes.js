@@ -42,11 +42,22 @@ router.post("/goal", authorize, DashboardController.addGoal);
 router.put("/goal/:id", authorize, DashboardController.updateGoal);
 router.delete("/goal/:id", authorize, DashboardController.deleteGoal);
 router.put("/goal/:id/pin", authorize, DashboardController.toggleGoalPin);
-router.post("/goal/:id/contribute", authorize, DashboardController.contributeToGoal);
 
-// 🟢 NEW: Route to delete a goal transaction (revert funds)
+// 🚀 NEW: Route for Status Update (Fixes your 404)
+router.put("/goal/:id/status", authorize, DashboardController.updateGoalStatus);
+
+router.post("/goal/:id/contribute", authorize, DashboardController.contributeToGoal);
 router.delete("/goal/transaction/:id", authorize, DashboardController.deleteGoalTransaction);
 router.get("/goal/:id/transactions", authorize, DashboardController.getGoalHistory);
+// router.post("/goal", authorize, DashboardController.addGoal);
+// router.put("/goal/:id", authorize, DashboardController.updateGoal);
+// router.delete("/goal/:id", authorize, DashboardController.deleteGoal);
+// router.put("/goal/:id/pin", authorize, DashboardController.toggleGoalPin);
+// router.post("/goal/:id/contribute", authorize, DashboardController.contributeToGoal);
+//
+// // 🟢 NEW: Route to delete a goal transaction (revert funds)
+// router.delete("/goal/transaction/:id", authorize, DashboardController.deleteGoalTransaction);
+// router.get("/goal/:id/transactions", authorize, DashboardController.getGoalHistory);
 // ==========================
 // 6. CATEGORIES
 // ==========================
