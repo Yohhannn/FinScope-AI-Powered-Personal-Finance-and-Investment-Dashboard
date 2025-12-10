@@ -1,12 +1,11 @@
 const DashboardModel = require("../models/dashboardModel");
-const db = require("../config/db.js");
+const db = require("../config/db.js"); // Assuming this exports the 'pool'
 
 const DashboardController = {
     // ==========================
     // 1. READ OPERATIONS
     // ==========================
 
-    // 🟢 GET WALLET DETAILS
     getWalletDetails: async (req, res) => {
         try {
             const { id } = req.params;
@@ -27,7 +26,6 @@ const DashboardController = {
         }
     },
 
-    // 🟢 DASHBOARD OVERVIEW (Updated with Net Worth % Calculation)
     getDashboardData: async (req, res) => {
         try {
             const userId = req.user.user_id;
@@ -36,25 +34,21 @@ const DashboardController = {
             const wallets = await DashboardModel.getWallets(userId);
             const currentNetWorth = wallets.rows.reduce((acc, curr) => acc + parseFloat(curr.balance), 0);
 
-            // 2. Fetch Monthly Flow (To calculate Start of Month Balance)
+            // 2. Fetch Monthly Flow
             const flowResult = await DashboardModel.getMonthlyNetFlow(userId);
             const income = parseFloat(flowResult.rows[0].total_income || 0);
             const expense = parseFloat(flowResult.rows[0].total_expense || 0);
 
-            // Logic: StartBalance = Current - Income + Expense
-            // (We reverse the transactions to find where we started)
             const netChange = income - expense;
             const startOfMonthNetWorth = currentNetWorth - netChange;
 
-            // 3. Calculate Percentage
             let percentageChange = 0;
             if (startOfMonthNetWorth !== 0) {
                 percentageChange = ((currentNetWorth - startOfMonthNetWorth) / Math.abs(startOfMonthNetWorth)) * 100;
             } else if (currentNetWorth > 0) {
-                percentageChange = 100; // From 0 to something is 100% growth
+                percentageChange = 100;
             }
 
-            // 4. Fetch other data
             const transactions = await DashboardModel.getRecentTransactions(userId);
             const pinnedBudgets = await DashboardModel.getPinnedBudgets(userId);
             const pinnedGoals = await DashboardModel.getPinnedGoals(userId);
@@ -76,11 +70,7 @@ const DashboardController = {
     getBudgetsAndGoals: async (req, res) => {
         try {
             const userId = req.user.user_id;
-
-            // 1. AUTO-ROLLOVER: Check and update dates
             await DashboardModel.rolloverBudgets(userId);
-
-            // 2. Fetch
             const budgets = await DashboardModel.getBudgets(userId);
             const goals = await DashboardModel.getGoals(userId);
             res.json({ budgets: budgets.rows, goals: goals.rows });
@@ -94,10 +84,7 @@ const DashboardController = {
         try {
             const { id } = req.params;
             const userId = req.user.user_id;
-
-            // Pass userId to the model for security
             const history = await DashboardModel.getBudgetTransactions(id, userId);
-
             res.json(history.rows);
         } catch (err) {
             console.error(err);
@@ -175,7 +162,6 @@ const DashboardController = {
             if (tx.rows.length === 0) return res.status(404).json({ error: "Transaction not found" });
 
             const { amount, type, wallet_id } = tx.rows[0];
-
             const reversal = type === 'expense' ? Math.abs(amount) : -Math.abs(amount);
             await DashboardModel.updateWalletBalance(wallet_id, reversal);
 
@@ -203,7 +189,6 @@ const DashboardController = {
 
                 let currentBalance = parseFloat(walletResult.rows[0].balance);
 
-                // If updating the same wallet, we must "credit back" the old amount first mentally to check funds
                 if (oldTx.wallet_id === parseInt(wallet_id)) {
                     if (oldTx.type === 'expense') currentBalance += parseFloat(Math.abs(oldTx.amount));
                     else currentBalance -= parseFloat(Math.abs(oldTx.amount));
@@ -217,11 +202,9 @@ const DashboardController = {
                 }
             }
 
-            // 1. Revert old transaction effect
             const oldReversal = oldTx.type === 'expense' ? Math.abs(oldTx.amount) : -Math.abs(oldTx.amount);
             await DashboardModel.updateWalletBalance(oldTx.wallet_id, oldReversal);
 
-            // 2. Apply new transaction effect
             const newAmount = parseFloat(amount);
             const newAdjustment = type === 'expense' ? -Math.abs(newAmount) : Math.abs(newAmount);
             await DashboardModel.updateWalletBalance(parseInt(wallet_id), newAdjustment);
@@ -271,14 +254,11 @@ const DashboardController = {
     // ==========================
     // 4. BUDGETS
     // ==========================
-
-    // 🟢 ADD BUDGET (With Duplicate Check)
     addBudget: async (req, res) => {
         try {
             const { category_id, limit_amount, start_date, end_date } = req.body;
             const userId = req.user.user_id;
 
-            // 1. Check for Duplicate Category
             const exists = await DashboardModel.checkBudgetExists(userId, category_id);
             if (exists) {
                 return res.status(400).json({ error: "A budget for this category already exists." });
@@ -297,14 +277,12 @@ const DashboardController = {
         }
     },
 
-    // 🟢 UPDATE BUDGET (With Duplicate Check & Category Update)
     updateBudget: async (req, res) => {
         try {
-            const { id } = req.params; // budget_id
+            const { id } = req.params;
             const { limit_amount, start_date, end_date, category_id } = req.body;
             const userId = req.user.user_id;
 
-            // 1. Check for Duplicate (Moved logic to model)
             const duplicateCheck = await DashboardModel.checkBudgetExistsForUpdate(userId, category_id, id);
 
             if (duplicateCheck.rows.length > 0) {
@@ -350,14 +328,12 @@ const DashboardController = {
     // 5. GOALS
     // ==========================
 
-    // 🟢 ADD GOAL (Updated to handle Transaction Log + Wallet Deduction)
     addGoal: async (req, res) => {
         try {
             const { name, target_amount, current_amount, wallet_id } = req.body;
             const userId = req.user.user_id;
             const initialSave = parseFloat(current_amount) || 0;
 
-            // 1. Validation Logic (Check Available Balance)
             if (wallet_id && initialSave > 0) {
                 const wallet = await DashboardModel.getWalletById(wallet_id, userId);
                 if (wallet.rows.length === 0) return res.status(404).json({ error: "Wallet not found" });
@@ -371,7 +347,6 @@ const DashboardController = {
                 }
             }
 
-            // 2. Create the Goal
             const newGoalResult = await DashboardModel.createGoal({
                 userId,
                 name,
@@ -381,17 +356,13 @@ const DashboardController = {
             });
             const newGoal = newGoalResult.rows[0];
 
-            // 🟢 3. Record Initial Save AND Update Wallet
             if (initialSave > 0 && wallet_id) {
-                // A. Create the Transaction Log Entry
                 await DashboardModel.createGoalTransaction(
                     initialSave,
                     newGoal.goal_id,
                     wallet_id,
-                    true // is_contribution = TRUE
+                    true
                 );
-
-                // B. DEDUCT the money from the Wallet
                 await DashboardModel.updateWalletBalance(parseInt(wallet_id), -Math.abs(initialSave));
             }
 
@@ -401,32 +372,77 @@ const DashboardController = {
             res.status(500).json({ error: err.message });
         }
     },
+
+    // 🟢 UPDATED: TRANSACTIONAL STATUS UPDATE
     updateGoalStatus: async (req, res) => {
+        const client = await db.connect(); // Get a client for transaction
         try {
             const { id } = req.params;
-            const { status } = req.body; // Expecting 'active', 'completed', or 'archived'
+            const { status } = req.body; // 'completed', 'active', etc.
 
-            // Optional: Validate status against allowed ENUM values
-            const allowedStatuses = ['active', 'completed', 'archived'];
-            if (!allowedStatuses.includes(status)) {
-                return res.status(400).json({ error: "Invalid status value" });
-            }
+            // 1. Start Transaction
+            await client.query('BEGIN');
 
-            // Call the model to update the database
-            const result = await DashboardModel.updateGoalStatus(id, status);
+            // 2. Fetch Goal
+            const goalResult = await client.query('SELECT * FROM goals WHERE goal_id = $1', [id]);
+            const goal = goalResult.rows[0];
 
-            if (result.rowCount === 0) {
+            if (!goal) {
+                await client.query('ROLLBACK');
                 return res.status(404).json({ error: "Goal not found" });
             }
 
-            res.json({ success: true, goal: result.rows[0] });
+            // 3. Logic: If marking as COMPLETED, deduct funds from Wallet
+            if (status === 'completed' && goal.status !== 'completed') {
+                if (goal.wallet_id) {
+                    // Check Wallet
+                    const walletRes = await client.query('SELECT balance FROM wallets WHERE wallet_id = $1', [goal.wallet_id]);
+                    const wallet = walletRes.rows[0];
+
+                    if (!wallet) {
+                        await client.query('ROLLBACK');
+                        return res.status(404).json({ error: "Assigned wallet not found" });
+                    }
+
+                    const cost = parseFloat(goal.target_amount); // Deduct full cost
+
+                    if (parseFloat(wallet.balance) < cost) {
+                        await client.query('ROLLBACK');
+                        return res.status(400).json({ error: `Insufficient funds in wallet to complete this goal. Needed: $${cost}` });
+                    }
+
+                    // Deduct Money
+                    await client.query('UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2', [cost, goal.wallet_id]);
+
+                    // Optional: Create a Transaction Record so it shows in history
+                    // (Assuming you have a transactions table)
+                    await client.query(`
+                        INSERT INTO transactions (user_id, wallet_id, amount, type, description, date)
+                        VALUES ($1, $2, $3, 'expense', $4, NOW())
+                    `, [req.user.user_id, goal.wallet_id, cost, `Goal Completed: ${goal.name}`]);
+                }
+            }
+
+            // 4. Update Status
+            const updateResult = await client.query(
+                `UPDATE goals SET status = $1 WHERE goal_id = $2 RETURNING *`,
+                [status, id]
+            );
+
+            // 5. Commit
+            await client.query('COMMIT');
+
+            res.json({ success: true, goal: updateResult.rows[0] });
+
         } catch (err) {
+            await client.query('ROLLBACK');
             console.error("Update Goal Status Error:", err.message);
-            res.status(500).json({ error: "Server Error" });
+            res.status(500).json({ error: "Server Error during transaction" });
+        } finally {
+            client.release();
         }
     },
 
-    // 🟢 UPDATE GOAL
     updateGoal: async (req, res) => {
         try {
             const { id } = req.params;
@@ -457,7 +473,6 @@ const DashboardController = {
         }
     },
 
-    // 🟢 CONTRIBUTE TO GOAL (Transactional)
     contributeToGoal: async (req, res) => {
         try {
             const { id } = req.params;
@@ -486,14 +501,11 @@ const DashboardController = {
         }
     },
 
-    // 🟢 DELETE GOAL TRANSACTION (Revert)
     deleteGoalTransaction: async (req, res) => {
         try {
-            const { id } = req.params; // The transaction_id
+            const { id } = req.params;
             const userId = req.user.user_id;
-
             await DashboardModel.deleteGoalTransaction(id, userId);
-
             res.json({ message: "Contribution reverted successfully" });
         } catch (err) {
             console.error(err);
@@ -521,7 +533,6 @@ const DashboardController = {
             const { name } = req.body;
             const userId = req.user.user_id;
 
-            // 🟢 FIX: Argument order swapped to match Model (userId, name)
             const existing = await DashboardModel.checkCategoryExists(userId, name);
             if (existing) {
                 return res.status(400).json({ error: "Category already exists" });
@@ -578,7 +589,6 @@ const DashboardController = {
         }
     },
 
-    // 🟢 GET ANALYTICS DATA
     getAnalyticsData: async (req, res) => {
         try {
             const userId = req.user.user_id;
@@ -593,7 +603,6 @@ const DashboardController = {
     getAllTransactions: async (req, res) => {
         try {
             const userId = req.user.user_id;
-            // Reuse the existing model function that fetches all data
             const transactions = await DashboardModel.getAllTransactions(userId);
             res.json(transactions.rows);
         } catch (err) {
@@ -607,19 +616,14 @@ const DashboardController = {
             const { id } = req.params;
             const userId = req.user.user_id;
 
-            // 1. Check if category is a Default System Category
             const categoryRes = await DashboardModel.getCategoryOwnerId(id);
-
             if (categoryRes.rows.length === 0) return res.status(404).json({ error: "Category not found" });
 
-            // Prevent deleting default categories (if they belong to user 1)
             if (categoryRes.rows[0].user_id === 1) {
                 return res.status(403).json({ error: "Cannot delete system default categories." });
             }
 
-            // 2. Attempt Delete (Only if belongs to logged-in user)
             const result = await DashboardModel.deleteCategory(id, userId);
-
             if (result.rowCount === 0) {
                 return res.status(404).json({ error: "Category not found or unauthorized." });
             }
@@ -627,7 +631,6 @@ const DashboardController = {
             res.json({ message: "Category deleted" });
 
         } catch (err) {
-            // 🟢 Catch Foreign Key Constraint Violation (Postgres Code 23503)
             if (err.code === '23503') {
                 return res.status(400).json({
                     error: "Cannot delete this category because it is being used in Transactions or Budgets."

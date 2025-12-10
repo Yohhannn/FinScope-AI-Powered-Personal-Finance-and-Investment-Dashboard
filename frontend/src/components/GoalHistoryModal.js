@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { X, Trash2, Calendar, Wallet, ArrowRight, CheckCircle, RotateCcw } from 'lucide-react';
+import { X, Trash2, Wallet, ArrowRight, CheckCircle, RotateCcw } from 'lucide-react';
 
-// 🚀 NEW: Define the base API URL from the environment variable
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api'; // Added fallback for safety
+// Define the base API URL
+const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
 
 export default function GoalHistoryModal({ isOpen, onClose, goal, onRefresh }) {
     const [transactions, setTransactions] = useState([]);
@@ -32,18 +32,21 @@ export default function GoalHistoryModal({ isOpen, onClose, goal, onRefresh }) {
         }
     };
 
-    // 🚀 NEW: Handle Marking Goal as Complete (or Reopening)
+    // 🟢 Handle Marking Goal as Complete (With Wallet Deduction)
     const toggleGoalStatus = async () => {
         const newStatus = goal.status === 'completed' ? 'active' : 'completed';
-        const action = newStatus === 'completed' ? 'complete' : 'reactivate';
 
-        if (!window.confirm(`Are you sure you want to mark this goal as ${newStatus}?`)) return;
+        // Custom warning message based on action
+        const warningMsg = newStatus === 'completed'
+            ? `Marking this as complete will DEDUCT the target amount ($${parseFloat(goal.target_amount).toLocaleString()}) from your wallet. Continue?`
+            : "Are you sure you want to reactivate this goal?";
+
+        if (!window.confirm(warningMsg)) return;
 
         try {
             setUpdating(true);
             const token = localStorage.getItem("token");
 
-            // Assuming you create a route: PUT /dashboard/goal/:id/status
             const res = await fetch(`${BASE_URL}/dashboard/goal/${goal.goal_id}/status`, {
                 method: 'PUT',
                 headers: {
@@ -53,15 +56,17 @@ export default function GoalHistoryModal({ isOpen, onClose, goal, onRefresh }) {
                 body: JSON.stringify({ status: newStatus })
             });
 
+            const data = await res.json();
+
             if (res.ok) {
-                if (onRefresh) onRefresh(); // Refresh parent data
+                if (onRefresh) onRefresh(); // Refresh parent data (balances etc)
                 onClose(); // Close modal
             } else {
-                alert(`Failed to ${action} goal.`);
+                alert(data.error || "Failed to update goal status.");
             }
         } catch (error) {
             console.error(error);
-            alert("An error occurred.");
+            alert("An error occurred while communicating with the server.");
         } finally {
             setUpdating(false);
         }
@@ -91,7 +96,6 @@ export default function GoalHistoryModal({ isOpen, onClose, goal, onRefresh }) {
 
     if (!isOpen || !goal) return null;
 
-    // Calculate progress for UI context
     const progress = Math.min((goal.current_amount / goal.target_amount) * 100, 100);
     const isCompleted = goal.status === 'completed';
 
@@ -104,7 +108,6 @@ export default function GoalHistoryModal({ isOpen, onClose, goal, onRefresh }) {
                     <div className="flex flex-col">
                         <div className="flex items-center gap-2">
                             <h3 className="text-lg font-bold text-gray-900 dark:text-white">{goal.name}</h3>
-                            {/* Status Badge */}
                             {isCompleted && (
                                 <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full font-medium border border-green-200">
                                     Completed
@@ -115,7 +118,7 @@ export default function GoalHistoryModal({ isOpen, onClose, goal, onRefresh }) {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        {/* 🚀 NEW: Mark Complete / Reactivate Button */}
+                        {/* Toggle Status Button */}
                         <button
                             onClick={toggleGoalStatus}
                             disabled={updating}
@@ -125,7 +128,9 @@ export default function GoalHistoryModal({ isOpen, onClose, goal, onRefresh }) {
                                 : 'bg-green-50 text-green-600 border-green-200 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800'
                             }`}
                         >
-                            {isCompleted ? (
+                            {updating ? (
+                                <span>Processing...</span>
+                            ) : isCompleted ? (
                                 <>
                                     <RotateCcw size={14} /> Reactivate
                                 </>
@@ -191,7 +196,6 @@ export default function GoalHistoryModal({ isOpen, onClose, goal, onRefresh }) {
                                         <span className={`font-bold ${parseFloat(tx.amount) > 0 ? 'text-green-600' : 'text-red-600'}`}>
                                             {parseFloat(tx.amount) > 0 ? '+' : ''}${Math.abs(tx.amount).toLocaleString()}
                                         </span>
-                                        {/* Hide delete button if goal is completed to preserve history integrity */}
                                         {!isCompleted && (
                                             <button
                                                 onClick={() => handleRevert(tx.transaction_id)}
