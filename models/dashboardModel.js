@@ -5,7 +5,6 @@ const DashboardModel = {
     // 🟢 1. READ OPERATIONS
     // ==========================
 
-    // 🟢 UPDATED: Calculate 'Available Balance' dynamically
     getWallets: async (userId) => {
         return db.query(`
             SELECT w.*,
@@ -17,7 +16,6 @@ const DashboardModel = {
     },
 
     getWalletById: async (walletId, userId) => {
-        // We also need available_balance here for validation
         return db.query(`
             SELECT w.*,
                    (w.balance - COALESCE((SELECT SUM(current_amount) FROM saving_goal WHERE wallet_id = w.wallet_id), 0)) AS available_balance
@@ -26,7 +24,6 @@ const DashboardModel = {
         `, [walletId, userId]);
     },
 
-    // 🟢 NEW FUNCTION: Create a transaction history for a saving goal (Moved from Controller)
     createGoalTransaction: async (amount, goalId, walletId, isContribution) => {
         return db.query(
             `INSERT INTO saving_goal_transaction (amount, transaction_date, is_contribution, goal_id, wallet_id)
@@ -39,7 +36,7 @@ const DashboardModel = {
     // 🟢 2. COMPLEX TRANSACTIONS (ALLOCATION & TRANSFER)
     // ============================================
 
-    // 🟢 PERFORM CONTRIBUTION (Fixed: Added is_contribution = TRUE)
+    // 🟢 PERFORM CONTRIBUTION
     performGoalContribution: async (userId, goalId, walletId, amount) => {
         const client = await db.pool.connect();
 
@@ -73,7 +70,7 @@ const DashboardModel = {
             // 4. Record History
             await client.query(
                 `INSERT INTO saving_goal_transaction (amount, transaction_date, goal_id, wallet_id, is_contribution)
-                 VALUES ($1, CURRENT_DATE, $2, $3, TRUE)`, // ✅ FIXED: Added is_contribution = TRUE
+                 VALUES ($1, CURRENT_DATE, $2, $3, TRUE)`,
                 [contribution, goalId, walletId]
             );
 
@@ -149,11 +146,70 @@ const DashboardModel = {
         }
     },
 
+    // 🟢 🚀 NEW: Perform Goal Completion (Transactional)
+    // This handles checking funds, deducting money, and updating status safely
+    performGoalCompletion: async (userId, goalId, status) => {
+        const client = await db.pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // 1. Fetch Goal Details
+            const goalRes = await client.query('SELECT * FROM saving_goal WHERE goal_id = $1 AND user_id = $2', [goalId, userId]);
+            if (goalRes.rows.length === 0) throw new Error("Goal not found");
+            const goal = goalRes.rows[0];
+
+            // 2. Logic: If marking as COMPLETED, deduct funds
+            if (status === 'completed' && goal.status !== 'completed') {
+                if (goal.wallet_id) {
+                    // Check Wallet Balance
+                    const walletRes = await client.query('SELECT balance FROM wallet WHERE wallet_id = $1 FOR UPDATE', [goal.wallet_id]);
+                    const wallet = walletRes.rows[0];
+
+                    if (!wallet) throw new Error("Assigned wallet not found");
+
+                    const cost = parseFloat(goal.target_amount);
+
+                    if (parseFloat(wallet.balance) < cost) {
+                        throw new Error(`Insufficient funds in wallet to complete this goal. Needed: $${cost}`);
+                    }
+
+                    // Deduct Money
+                    await client.query('UPDATE wallet SET balance = balance - $1 WHERE wallet_id = $2', [cost, goal.wallet_id]);
+
+                    // Create Expense Record in main Transaction table
+                    await client.query(`
+                        INSERT INTO transaction (user_id, wallet_id, amount, type, description, transaction_date, name)
+                        VALUES ($1, $2, $3, 'expense', $4, NOW(), 'Goal Completed')
+                    `, [userId, goal.wallet_id, cost, `Goal Completed: ${goal.name}`]);
+                }
+            }
+
+            // 3. Update Status
+            const result = await client.query(
+                `UPDATE saving_goal SET status = $1 WHERE goal_id = $2 RETURNING *`,
+                [status, goalId]
+            );
+
+            await client.query('COMMIT');
+            return result.rows[0];
+
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    },
+
+    // ==========================================
+    // 🟢 3. READ HELPERS
+    // ==========================================
+
     getAllTransactions: async (userId) => {
         return db.query(`
             SELECT
                 t.transaction_id, t.name, t.amount, t.transaction_date, t.description,
-                t.type, /* Use t.type for transaction type */
+                t.type,
                 t.created_at, t.wallet_id, t.category_id,
                 w.name as wallet_name,
                 c.name as category_name
@@ -165,7 +221,6 @@ const DashboardModel = {
         `, [userId]);
     },
 
-    // 🟢 NEW: Auto-Rollover Expired Budgets
     rolloverBudgets: async (userId) => {
         return db.query(`
             UPDATE budget
@@ -178,14 +233,12 @@ const DashboardModel = {
         `, [userId]);
     },
 
-    // 🟢 3. UPDATED: REVERT ALLOCATION (No Wallet Refund needed)
     deleteGoalTransaction: async (transactionId, userId) => {
         const client = await db.pool.connect();
 
         try {
             await client.query('BEGIN');
 
-            // A. Get details
             const txRes = await client.query(
                 `SELECT t.*, g.user_id
                  FROM saving_goal_transaction t
@@ -201,14 +254,11 @@ const DashboardModel = {
             const amountToReverse = parseFloat(tx.amount);
             const goalId = tx.goal_id;
 
-            // B. Reverse Goal Amount Only
-            // (We do NOT touch the wallet table because we never took money from it)
             await client.query(
                 `UPDATE saving_goal SET current_amount = current_amount - $1 WHERE goal_id = $2`,
                 [amountToReverse, goalId]
             );
 
-            // C. Delete the record
             await client.query('DELETE FROM saving_goal_transaction WHERE transaction_id = $1', [transactionId]);
 
             await client.query('COMMIT');
@@ -222,12 +272,11 @@ const DashboardModel = {
         }
     },
 
-    // 🟢 FIX: Explicitly select transaction columns to avoid ambiguity
     getTransactionsByWalletId: async (walletId) => {
         return db.query(`
             SELECT
                 t.transaction_id, t.name, t.amount, t.transaction_date, t.description,
-                t.type, /* Explicitly select transaction type */
+                t.type,
                 t.created_at, t.wallet_id, t.category_id,
                 c.name as category_name
             FROM transaction t
@@ -237,12 +286,11 @@ const DashboardModel = {
         `, [walletId]);
     },
 
-    // 🟢 FIX 2: getRecentTransactions (Explicit column selection)
     getRecentTransactions: async (userId) => {
         return db.query(`
             SELECT
                 t.transaction_id, t.name, t.amount, t.transaction_date, t.description,
-                t.type, /* Explicitly select transaction type */
+                t.type,
                 t.created_at, t.wallet_id, t.category_id,
                 w.name as wallet_name,
                 c.name as category_name
@@ -256,12 +304,10 @@ const DashboardModel = {
     },
 
     // ==========================================
-    // 🟢 3. BUDGETS & GOALS (FIXED QUERIES)
+    // 🟢 4. BUDGETS & GOALS
     // ==========================================
 
-    // 🟢 FIX 4: getBudgetTransactions (Secure Filtering)
     getBudgetTransactions: async (budgetId, userId) => {
-        // 1. Verify this budget belongs to the logged-in user
         const budgetRes = await db.query(
             'SELECT * FROM budget WHERE budget_id = $1 AND user_id = $2',
             [budgetId, userId]
@@ -270,7 +316,6 @@ const DashboardModel = {
         if (budgetRes.rows.length === 0) throw new Error("Budget not found or unauthorized");
         const budget = budgetRes.rows[0];
 
-        // 2. Fetch transactions ONLY for this user
         return db.query(`
             SELECT
                 t.transaction_id, t.name, t.amount, t.transaction_date, t.description,
@@ -282,12 +327,11 @@ const DashboardModel = {
             WHERE t.category_id = $1
               AND t.type = 'expense'
               AND t.transaction_date BETWEEN $2 AND $3
-              AND w.user_id = $4  /* 🔒 CRITICAL FIX: Only show MY wallet transactions */
+              AND w.user_id = $4
             ORDER BY t.transaction_date DESC
         `, [budget.category_id, budget.start_date, budget.end_date, userId]);
     },
 
-    // 🟢 FIX 5: getMonthlyNetFlow (Explicitly name the transaction table in the WHERE clause)
     getMonthlyNetFlow: async (userId) => {
         return db.query(`
             SELECT
@@ -300,8 +344,6 @@ const DashboardModel = {
         `, [userId]);
     },
 
-    // 🟢 CRITICAL FIX: getPinnedBudgets
-    // We added: JOIN wallet w ON t.wallet_id = w.wallet_id AND w.user_id = b.user_id
     getPinnedBudgets: async (userId) => {
         return db.query(`
             SELECT b.*, c.name as category_name,
@@ -312,7 +354,7 @@ const DashboardModel = {
                        WHERE t.category_id = b.category_id
                          AND t.type = 'expense'
                          AND t.transaction_date BETWEEN b.start_date AND b.end_date
-                         AND w.user_id = b.user_id -- 🔒 SECURITY CHECK
+                         AND w.user_id = b.user_id
                    ) as spent
             FROM budget b
                      JOIN category c ON b.category_id = c.category_id
@@ -325,8 +367,6 @@ const DashboardModel = {
         return db.query('SELECT * FROM saving_goal WHERE user_id = $1 AND is_pinned = TRUE LIMIT 4', [userId]);
     },
 
-    // 🟢 CRITICAL FIX: getBudgets (The "Ghost Transaction" Fix)
-    // We added: JOIN wallet w ON t.wallet_id = w.wallet_id AND w.user_id = b.user_id
     getBudgets: async (userId) => {
         return db.query(`
             SELECT b.*, c.name as category_name,
@@ -337,7 +377,7 @@ const DashboardModel = {
                        WHERE t.category_id = b.category_id
                          AND t.type = 'expense'
                          AND t.transaction_date BETWEEN b.start_date AND b.end_date
-                         AND w.user_id = b.user_id -- 🔒 SECURITY CHECK
+                         AND w.user_id = b.user_id
                    ) as spent
             FROM budget b
                      JOIN category c ON b.category_id = c.category_id
@@ -361,7 +401,7 @@ const DashboardModel = {
     },
 
     // ==========================================
-    // 🟢 4. STANDARD CRUD OPERATIONS
+    // 🟢 5. STANDARD CRUD OPERATIONS
     // ==========================================
 
     getMarketWatchlist: async (userId) => {
@@ -464,7 +504,6 @@ const DashboardModel = {
         return db.query(`INSERT INTO category (name, user_id) VALUES ($1, $2) RETURNING *`, [name, userId]);
     },
 
-    // 🟢 THIS WAS MISSING
     checkCategoryExists: async (userId, name) => {
         const res = await db.query(
             'SELECT * FROM category WHERE user_id = $1 AND name = $2',
@@ -473,12 +512,13 @@ const DashboardModel = {
         return res.rows.length > 0;
     },
 
+    // Kept for backward compatibility, but Controller should use performGoalCompletion for status updates
     updateGoalStatus: async (goalId, status) => {
         return db.query(`
-            UPDATE saving_goal 
-            SET status = $1 
-            WHERE goal_id = $2 
-            RETURNING *
+            UPDATE saving_goal
+            SET status = $1
+            WHERE goal_id = $2
+                RETURNING *
         `, [status, goalId]);
     },
 
