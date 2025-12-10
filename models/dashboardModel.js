@@ -148,39 +148,53 @@ const DashboardModel = {
 
     // 🟢 🚀 NEW: Perform Goal Completion (Transactional)
     // This handles checking funds, deducting money, and updating status safely
+// 🟢 🚀 UPDATED: Handle Completion AND Reactivation (Refund)
     performGoalCompletion: async (userId, goalId, status) => {
         const client = await db.pool.connect();
         try {
             await client.query('BEGIN');
 
-            // 1. Fetch Goal Details
-            const goalRes = await client.query('SELECT * FROM saving_goal WHERE goal_id = $1 AND user_id = $2', [goalId, userId]);
+            // 1. Fetch Goal
+            const goalRes = await client.query('SELECT * FROM saving_goal WHERE goal_id = $1 AND user_id = $2 FOR UPDATE', [goalId, userId]);
             if (goalRes.rows.length === 0) throw new Error("Goal not found");
             const goal = goalRes.rows[0];
 
-            // 2. Logic: If marking as COMPLETED, deduct funds
+            // 🟢 CASE A: Marking as COMPLETED -> DEDUCT Money
             if (status === 'completed' && goal.status !== 'completed') {
                 if (goal.wallet_id) {
-                    // Check Wallet Balance
                     const walletRes = await client.query('SELECT balance FROM wallet WHERE wallet_id = $1 FOR UPDATE', [goal.wallet_id]);
                     const wallet = walletRes.rows[0];
-
                     if (!wallet) throw new Error("Assigned wallet not found");
 
                     const cost = parseFloat(goal.target_amount);
-
                     if (parseFloat(wallet.balance) < cost) {
-                        throw new Error(`Insufficient funds in wallet to complete this goal. Needed: $${cost}`);
+                        throw new Error(`Insufficient funds. Needed: $${cost}`);
                     }
 
-                    // Deduct Money
+                    // Deduct
                     await client.query('UPDATE wallet SET balance = balance - $1 WHERE wallet_id = $2', [cost, goal.wallet_id]);
 
-                    // Create Expense Record in main Transaction table
+                    // Log
                     await client.query(`
                         INSERT INTO transaction (user_id, wallet_id, amount, type, description, transaction_date, name)
                         VALUES ($1, $2, $3, 'expense', $4, NOW(), 'Goal Completed')
                     `, [userId, goal.wallet_id, cost, `Goal Completed: ${goal.name}`]);
+                }
+            }
+
+            // 🟢 CASE B: Reactivating (Undo) -> REFUND Money
+            else if (status === 'active' && goal.status === 'completed') {
+                if (goal.wallet_id) {
+                    const refundAmount = parseFloat(goal.target_amount);
+
+                    // Refund
+                    await client.query('UPDATE wallet SET balance = balance + $1 WHERE wallet_id = $2', [refundAmount, goal.wallet_id]);
+
+                    // Log Refund
+                    await client.query(`
+                        INSERT INTO transaction (user_id, wallet_id, amount, type, description, transaction_date, name)
+                        VALUES ($1, $2, $3, 'income', $4, NOW(), 'Goal Reactivated')
+                    `, [userId, goal.wallet_id, refundAmount, `Refund: Goal ${goal.name} reactivated`]);
                 }
             }
 
