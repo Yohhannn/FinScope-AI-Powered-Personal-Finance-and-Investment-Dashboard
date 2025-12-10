@@ -75,14 +75,19 @@ CREATE INDEX idx_wallet_user ON wallet (user_id);
 -- ===========================
 -- TABLE: SAVING_GOAL
 -- ===========================
+CREATE TYPE goal_status AS ENUM ('active', 'completed', 'archived'); -- <--- NEW ENUM
+
+-- ...
+
 CREATE TABLE saving_goal (
                              goal_id SERIAL PRIMARY KEY,
                              name VARCHAR(255) NOT NULL,
                              target_amount NUMERIC(12,2) NOT NULL,
                              current_amount NUMERIC(12,2) DEFAULT 0 NOT NULL,
                              is_pinned BOOLEAN DEFAULT FALSE NOT NULL,
+                             status goal_status DEFAULT 'active' NOT NULL, -- <--- NEW COLUMN
                              user_id INT NOT NULL REFERENCES "user"(user_id) ON DELETE CASCADE,
-                             wallet_id INT REFERENCES wallet(wallet_id) ON DELETE SET NULL, -- Wallet where funds are held
+                             wallet_id INT REFERENCES wallet(wallet_id) ON DELETE SET NULL,
                              created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_goal_user ON saving_goal (user_id);
