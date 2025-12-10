@@ -375,71 +375,32 @@ const DashboardController = {
 
     // 🟢 UPDATED: TRANSACTIONAL STATUS UPDATE
     updateGoalStatus: async (req, res) => {
-        const client = await db.connect(); // Get a client for transaction
         try {
             const { id } = req.params;
-            const { status } = req.body; // 'completed', 'active', etc.
+            const { status } = req.body; // 'completed', 'active'
+            const userId = req.user.user_id;
 
-            // 1. Start Transaction
-            await client.query('BEGIN');
-
-            // 2. Fetch Goal
-            const goalResult = await client.query('SELECT * FROM goals WHERE goal_id = $1', [id]);
-            const goal = goalResult.rows[0];
-
-            if (!goal) {
-                await client.query('ROLLBACK');
-                return res.status(404).json({ error: "Goal not found" });
+            // Validate status
+            const allowedStatuses = ['active', 'completed', 'archived'];
+            if (!allowedStatuses.includes(status)) {
+                return res.status(400).json({ error: "Invalid status value" });
             }
 
-            // 3. Logic: If marking as COMPLETED, deduct funds from Wallet
-            if (status === 'completed' && goal.status !== 'completed') {
-                if (goal.wallet_id) {
-                    // Check Wallet
-                    const walletRes = await client.query('SELECT balance FROM wallets WHERE wallet_id = $1', [goal.wallet_id]);
-                    const wallet = walletRes.rows[0];
+            // 🚀 CRITICAL FIX: Call the Model instead of writing manual SQL here.
+            // The Model handles:
+            // 1. Transaction (BEGIN/COMMIT)
+            // 2. Deduction (if completing)
+            // 3. Refund (if reactivating)
+            // 4. Correct Table Names
+            const updatedGoal = await DashboardModel.performGoalCompletion(userId, id, status);
 
-                    if (!wallet) {
-                        await client.query('ROLLBACK');
-                        return res.status(404).json({ error: "Assigned wallet not found" });
-                    }
-
-                    const cost = parseFloat(goal.target_amount); // Deduct full cost
-
-                    if (parseFloat(wallet.balance) < cost) {
-                        await client.query('ROLLBACK');
-                        return res.status(400).json({ error: `Insufficient funds in wallet to complete this goal. Needed: $${cost}` });
-                    }
-
-                    // Deduct Money
-                    await client.query('UPDATE wallets SET balance = balance - $1 WHERE wallet_id = $2', [cost, goal.wallet_id]);
-
-                    // Optional: Create a Transaction Record so it shows in history
-                    // (Assuming you have a transactions table)
-                    await client.query(`
-                        INSERT INTO transactions (user_id, wallet_id, amount, type, description, date)
-                        VALUES ($1, $2, $3, 'expense', $4, NOW())
-                    `, [req.user.user_id, goal.wallet_id, cost, `Goal Completed: ${goal.name}`]);
-                }
-            }
-
-            // 4. Update Status
-            const updateResult = await client.query(
-                `UPDATE goals SET status = $1 WHERE goal_id = $2 RETURNING *`,
-                [status, id]
-            );
-
-            // 5. Commit
-            await client.query('COMMIT');
-
-            res.json({ success: true, goal: updateResult.rows[0] });
+            res.json({ success: true, goal: updatedGoal });
 
         } catch (err) {
-            await client.query('ROLLBACK');
             console.error("Update Goal Status Error:", err.message);
-            res.status(500).json({ error: "Server Error during transaction" });
-        } finally {
-            client.release();
+            // Return 400 for funds issues, 500 for server errors
+            const statusCode = err.message.includes("Insufficient") ? 400 : 500;
+            res.status(statusCode).json({ error: err.message });
         }
     },
 
