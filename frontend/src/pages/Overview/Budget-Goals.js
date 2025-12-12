@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import {
     Plus, Tags, Pencil, Star, TrendingUp, Target,
-    CreditCard, Wallet, Banknote, Coins, ArrowUpRight, Lightbulb, Loader2
+    CreditCard, Wallet, Banknote, Coins, ArrowUpRight, Lightbulb, Loader2, Calendar
 } from 'lucide-react';
 import { Card, ProgressBar } from '../../components/DashboardUI';
 import BudgetModal from '../../components/BudgetModal';
@@ -22,6 +22,16 @@ const getWalletStyle = (type) => {
     if (t === 'bank') return { icon: CreditCard, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' };
     if (t === 'stocks') return { icon: ArrowUpRight, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-900/20' };
     return { icon: Banknote, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' };
+};
+
+// Helper to format dates
+const formatDate = (dateString) => {
+    if (!dateString) return null;
+    return new Date(dateString).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+    });
 };
 
 export default function BudgetGoals({ setCurrentPage }) {
@@ -251,14 +261,46 @@ export default function BudgetGoals({ setCurrentPage }) {
                     {goals.map(goal => {
                         const current = parseFloat(goal.current_amount);
                         const target = parseFloat(goal.target_amount);
+                        const monthlyContribution = parseFloat(goal.monthly_contribution || 0);
                         const percentage = Math.min((current / target) * 100, 100);
+
+                        // 🟢 FIX: Check for goal_date OR target_date to match DB
+                        const startDate = formatDate(goal.start_date);
+                        const targetDate = formatDate(goal.goal_date || goal.target_date);
+
                         return (
                             <div key={goal.goal_id} onClick={() => openGoalHistory(goal)} className="group relative bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition duration-200 cursor-pointer hover:border-blue-200 dark:hover:border-blue-800">
                                 <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                                     <button onClick={() => togglePin('goal', goal.goal_id, goal.is_pinned)} className={`p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 ${goal.is_pinned ? 'text-yellow-500' : 'text-gray-400'}`}><Star size={16} fill={goal.is_pinned ? "currentColor" : "none"} /></button>
                                     <button onClick={() => openEditGoal(goal)} className="p-2 text-gray-400 hover:text-green-600 dark:hover:text-green-400 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"><Pencil size={16}/></button>
                                 </div>
-                                <div className="mb-4"><div className="flex justify-between items-start mb-2"><h4 className="text-lg font-bold text-gray-900 dark:text-white">{goal.name}</h4>{goal.is_pinned && <Star size={14} className="text-yellow-500 absolute top-6 right-16 sm:right-20" fill="currentColor" />}</div><p className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">₱{current.toLocaleString()}<span className="text-base font-medium text-gray-400 dark:text-gray-500"> / ₱{target.toLocaleString()}</span></p></div>
+
+                                <div className="mb-3">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h4 className="text-lg font-bold text-gray-900 dark:text-white">{goal.name}</h4>
+                                        {goal.is_pinned && <Star size={14} className="text-yellow-500 absolute top-6 right-16 sm:right-20" fill="currentColor" />}
+                                    </div>
+
+                                    {/* 🟢 Date Display */}
+                                    <div className="flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                        {(startDate || targetDate) && (
+                                            <div className="flex items-center gap-1">
+                                                <Calendar size={12} className="text-gray-400"/>
+                                                <span>{startDate || 'N/A'} — {targetDate || 'No Deadline'}</span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* 🟢 Monthly Budget/Contribution Display */}
+                                    {monthlyContribution > 0 && (
+                                        <div className="inline-block px-2 py-1 mb-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-md text-xs font-semibold">
+                                            Monthly Budget: ₱{monthlyContribution.toLocaleString()}
+                                        </div>
+                                    )}
+
+                                    <p className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">₱{current.toLocaleString()}<span className="text-base font-medium text-gray-400 dark:text-gray-500"> / ₱{target.toLocaleString()}</span></p>
+                                </div>
+
                                 <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3 mb-4 overflow-hidden"><div className="bg-green-500 h-3 rounded-full transition-all duration-500" style={{ width: `${percentage}%` }}></div></div>
                                 <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-50 dark:border-gray-700/50">
                                     <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400"><span className="text-green-600 dark:text-green-400 mr-1">{(percentage).toFixed(0)}%</span> Achieved</div>
