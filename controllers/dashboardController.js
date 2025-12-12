@@ -1,5 +1,4 @@
 const DashboardModel = require("../models/dashboardModel");
-const db = require("../config/db.js"); // Assuming this exports the 'pool'
 
 const DashboardController = {
     // ==========================
@@ -330,9 +329,17 @@ const DashboardController = {
 
     addGoal: async (req, res) => {
         try {
-            const { name, target_amount, current_amount, wallet_id } = req.body;
+            const { name, target_amount, current_amount, wallet_id, start_date, goal_date } = req.body;
             const userId = req.user.user_id;
             const initialSave = parseFloat(current_amount) || 0;
+
+            // 🔴 FIX: Validate goal_date is present
+            if (!goal_date) {
+                return res.status(400).json({ error: "Target Date (goal_date) is required." });
+            }
+
+            // 🟢 Default start_date to today if missing
+            const finalStartDate = start_date || new Date().toISOString().split('T')[0];
 
             if (wallet_id && initialSave > 0) {
                 const wallet = await DashboardModel.getWalletById(wallet_id, userId);
@@ -352,7 +359,9 @@ const DashboardController = {
                 name,
                 target_amount: parseFloat(target_amount),
                 current_amount: initialSave,
-                wallet_id
+                wallet_id,
+                start_date: finalStartDate, // 🟢 Use safe value
+                goal_date
             });
             const newGoal = newGoalResult.rows[0];
 
@@ -373,32 +382,22 @@ const DashboardController = {
         }
     },
 
-    // 🟢 UPDATED: TRANSACTIONAL STATUS UPDATE
     updateGoalStatus: async (req, res) => {
         try {
             const { id } = req.params;
             const { status } = req.body; // 'completed', 'active'
             const userId = req.user.user_id;
 
-            // Validate status
             const allowedStatuses = ['active', 'completed', 'archived'];
             if (!allowedStatuses.includes(status)) {
                 return res.status(400).json({ error: "Invalid status value" });
             }
 
-            // 🚀 CRITICAL FIX: Call the Model instead of writing manual SQL here.
-            // The Model handles:
-            // 1. Transaction (BEGIN/COMMIT)
-            // 2. Deduction (if completing)
-            // 3. Refund (if reactivating)
-            // 4. Correct Table Names
             const updatedGoal = await DashboardModel.performGoalCompletion(userId, id, status);
-
             res.json({ success: true, goal: updatedGoal });
 
         } catch (err) {
             console.error("Update Goal Status Error:", err.message);
-            // Return 400 for funds issues, 500 for server errors
             const statusCode = err.message.includes("Insufficient") ? 400 : 500;
             res.status(statusCode).json({ error: err.message });
         }
@@ -407,8 +406,16 @@ const DashboardController = {
     updateGoal: async (req, res) => {
         try {
             const { id } = req.params;
-            const { name, target_amount, current_amount, wallet_id } = req.body;
+            const { name, target_amount, current_amount, wallet_id, start_date, goal_date } = req.body;
             const newAmount = parseFloat(current_amount);
+
+            // 🔴 FIX: Validate goal_date is present
+            if (!goal_date) {
+                return res.status(400).json({ error: "Target Date (goal_date) is required." });
+            }
+
+            // 🟢 Default start_date to today if missing
+            const finalStartDate = start_date || new Date().toISOString().split('T')[0];
 
             if (wallet_id) {
                 const wallet = await DashboardModel.getWalletById(wallet_id, req.user.user_id);
@@ -425,7 +432,12 @@ const DashboardController = {
             }
 
             const result = await DashboardModel.updateGoal(id, {
-                name, target_amount: parseFloat(target_amount), current_amount: newAmount, wallet_id
+                name,
+                target_amount: parseFloat(target_amount),
+                current_amount: newAmount,
+                wallet_id,
+                start_date: finalStartDate, // 🟢 Use safe value
+                goal_date
             });
             res.json(result.rows[0]);
         } catch (err) {

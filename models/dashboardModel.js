@@ -497,14 +497,24 @@ const DashboardModel = {
         return db.query('UPDATE budget SET is_pinned = $1 WHERE budget_id = $2', [status, id]);
     },
 
+    // 🟢 UPDATED: GOAL OPERATIONS WITH DATES
     createGoal: async (data) => {
-        const { userId, name, target_amount, current_amount, wallet_id } = data;
-        return db.query(`INSERT INTO saving_goal (user_id, name, target_amount, current_amount, wallet_id) VALUES ($1, $2, $3, $4, $5) RETURNING *`, [userId, name, target_amount, current_amount, wallet_id]);
+        const { userId, name, target_amount, current_amount, wallet_id, start_date, goal_date } = data;
+        // 🔍 Ensure goal_date is passed to SQL
+        return db.query(
+            `INSERT INTO saving_goal (user_id, name, target_amount, current_amount, wallet_id, start_date, goal_date)
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+            [userId, name, target_amount, current_amount, wallet_id, start_date, goal_date]
+        );
     },
     updateGoal: async (id, data) => {
-        const { name, target_amount, current_amount, wallet_id } = data;
-        return db.query(`UPDATE saving_goal SET name=$1, target_amount=$2, current_amount=$3, wallet_id=$4 WHERE goal_id=$5 RETURNING *`, [name, target_amount, current_amount, wallet_id, id]);
+        const { name, target_amount, current_amount, wallet_id, start_date, goal_date } = data;
+        return db.query(
+            `UPDATE saving_goal SET name=$1, target_amount=$2, current_amount=$3, wallet_id=$4, start_date=$5, goal_date=$6 WHERE goal_id=$7 RETURNING *`,
+            [name, target_amount, current_amount, wallet_id, start_date, goal_date, id]
+        );
     },
+
     incrementGoalAmount: async (goalId, amount) => {
         return db.query(`UPDATE saving_goal SET current_amount = current_amount + $1 WHERE goal_id = $2 RETURNING *`, [amount, goalId]);
     },
@@ -548,5 +558,3 @@ const DashboardModel = {
 };
 
 module.exports = DashboardModel;
-
-//YES

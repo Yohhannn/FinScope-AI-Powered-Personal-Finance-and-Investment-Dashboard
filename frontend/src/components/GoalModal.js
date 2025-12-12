@@ -5,7 +5,16 @@ import { X, Trash2, AlertTriangle, Lock } from 'lucide-react';
 const BASE_URL = process.env.REACT_APP_API_URL;
 
 export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
-    const [form, setForm] = useState({ name: '', target_amount: '', current_amount: '0', wallet_id: '' });
+    // 🟢 UPDATED: Added start_date and goal_date to state
+    const [form, setForm] = useState({
+        name: '',
+        target_amount: '',
+        current_amount: '0',
+        wallet_id: '',
+        start_date: '',
+        goal_date: ''
+    });
+
     const [wallets, setWallets] = useState([]);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -16,7 +25,6 @@ export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
             const fetchWallets = async () => {
                 const token = localStorage.getItem("token");
                 try {
-                    // 🟢 UPDATED: Using BASE_URL
                     const res = await fetch(`${BASE_URL}/dashboard`, { headers: { Authorization: token } });
                     if(res.ok) {
                         const data = await res.json();
@@ -32,14 +40,32 @@ export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
             fetchWallets();
 
             if (goal) {
+                // 🟢 HELPER: Extract YYYY-MM-DD from ISO string for input fields
+                const formatDate = (dateString) => {
+                    if (!dateString) return '';
+                    try {
+                        return new Date(dateString).toISOString().split('T')[0];
+                    } catch (e) { return ''; }
+                };
+
                 setForm({
                     name: goal.name,
                     target_amount: goal.target_amount,
                     current_amount: goal.current_amount,
-                    wallet_id: goal.wallet_id || ''
+                    wallet_id: goal.wallet_id || '',
+                    start_date: formatDate(goal.start_date),
+                    goal_date: formatDate(goal.goal_date)
                 });
             } else {
-                setForm({ name: '', target_amount: '', current_amount: '0', wallet_id: '' });
+                // 🟢 DEFAULT: Start date is today
+                setForm({
+                    name: '',
+                    target_amount: '',
+                    current_amount: '0',
+                    wallet_id: '',
+                    start_date: new Date().toISOString().split('T')[0],
+                    goal_date: ''
+                });
             }
         }
     }, [isOpen, goal]);
@@ -55,6 +81,13 @@ export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
         setError('');
         setLoading(true);
 
+        // 🔴 CRITICAL FIX: Ensure goal_date is actually selected on the client side
+        if (!form.goal_date) {
+            setError("Target Date is required.");
+            setLoading(false);
+            return;
+        }
+
         const initialSave = parseFloat(form.current_amount || 0);
 
         // 🟢 VALIDATION: Only check balance if CREATING a new goal
@@ -67,9 +100,14 @@ export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
             }
         }
 
-        const token = localStorage.getItem("token");
+        // 🟢 VALIDATION: Ensure Goal Date is after Start Date
+        if (form.goal_date && form.start_date && form.goal_date < form.start_date) {
+            setError("Target Date cannot be before Start Date.");
+            setLoading(false);
+            return;
+        }
 
-        // 🟢 UPDATED: Using BASE_URL
+        const token = localStorage.getItem("token");
         const url = goal ? `${BASE_URL}/dashboard/goal/${goal.goal_id}` : `${BASE_URL}/dashboard/goal`;
         const method = goal ? "PUT" : "POST";
 
@@ -99,8 +137,6 @@ export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
     const handleDelete = async () => {
         if(!window.confirm("Delete this goal?")) return;
         const token = localStorage.getItem("token");
-
-        // 🟢 UPDATED: Using BASE_URL
         await fetch(`${BASE_URL}/dashboard/goal/${goal.goal_id}`, { method: "DELETE", headers: { Authorization: token } });
         onSuccess(); onClose();
     };
@@ -144,13 +180,37 @@ export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
                         <p className="text-xs text-gray-400 mt-1">Funds are soft-allocated from this wallet.</p>
                     </div>
 
+                    {/* 🟢 NEW: Date Inputs Grid */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Target (₱)</label>
+                            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Start Date</label>
+                            <input
+                                type="date"
+                                value={form.start_date}
+                                onChange={e => setForm({...form, start_date: e.target.value})}
+                                className="w-full p-2.5 rounded-xl bg-gray-50 dark:bg-gray-700 dark:text-white border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Target Date</label>
+                            <input
+                                type="date"
+                                value={form.goal_date}
+                                onChange={e => setForm({...form, goal_date: e.target.value})}
+                                className="w-full p-2.5 rounded-xl bg-gray-50 dark:bg-gray-700 dark:text-white border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none"
+                                required
+                                min={form.start_date} // 🟢 PREVENT picking a date before start date
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Target Amount (₱)</label>
                             <input type="number" value={form.target_amount} onChange={e => setForm({...form, target_amount: e.target.value})} className="w-full p-2.5 rounded-xl bg-gray-50 dark:bg-gray-700 dark:text-white border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none" required placeholder="0.00" />
                         </div>
 
-                        {/* 🟢 INITIAL SAVE: Disabled when Editing */}
                         <div className="relative">
                             <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
                                 {goal ? "Current Balance" : "Initial Save (₱)"}
@@ -161,7 +221,7 @@ export default function GoalModal({ isOpen, onClose, onSuccess, goal }) {
                                 onChange={e => setForm({...form, current_amount: e.target.value})}
                                 className={`w-full p-2.5 rounded-xl border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none ${goal ? 'bg-gray-200 dark:bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-gray-50 dark:bg-gray-700 dark:text-white'}`}
                                 placeholder="0.00"
-                                disabled={!!goal} // 🟢 Disable if goal exists (Edit Mode)
+                                disabled={!!goal}
                             />
                             {goal && <Lock size={14} className="absolute right-3 top-[38px] text-gray-400" />}
                         </div>
