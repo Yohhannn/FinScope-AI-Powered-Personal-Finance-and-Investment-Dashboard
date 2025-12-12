@@ -77,6 +77,7 @@ npm install react-router-dom recharts jspdf jspdf-autotable file-saver papaparse
 npm start
 # Development server will start at http://localhost:3000
 
+deployment: Add .env file and add this text "REACT_APP_API_URL=https://your.backend.addres/api"
 
 User,User ID,Email,Plaintext Password,BCrypt Hash (for securepass123)
 Alice Smith,1,alice@example.com,password123,$2b$10$v4.k.7L7.E1jS1yX8.B2E.S4D8A6X9D7G3V8I3H1L2V9E6R7C4F1A3
