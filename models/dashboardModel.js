@@ -337,8 +337,15 @@ const DashboardModel = {
     checkCategoryExists: async (userId, name) => { const res = await db.query('SELECT * FROM category WHERE user_id = $1 AND name = $2', [userId, name]); return res.rows.length > 0; },
     updateGoalStatus: async (goalId, status) => { return db.query(`UPDATE saving_goal SET status = $1 WHERE goal_id = $2 RETURNING *`, [status, goalId]); },
     updateCategory: async (id, name) => { return db.query(`UPDATE category SET name=$1 WHERE category_id=$2 RETURNING *`, [name, id]); },
-    deleteCategory: async (id, userId) => { return db.query('DELETE FROM category WHERE category_id = $1 AND user_id = $2', [id, userId]); }
+// In DashboardModel object...
 
+    deleteCategory: async (id, userId) => {
+        // 🟢 UPDATED SQL: Added "OR user_id = 1"
+        return db.query(
+            'DELETE FROM category WHERE category_id = $1 AND (user_id = $2 OR user_id = 1)',
+            [id, userId]
+        );
+    }
 };
 
 module.exports = DashboardModel;
