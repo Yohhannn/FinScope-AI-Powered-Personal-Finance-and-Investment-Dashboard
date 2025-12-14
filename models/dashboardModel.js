@@ -175,13 +175,15 @@ const DashboardModel = {
     },
 
     createPlannedExpense: async (data) => {
-        const { userId, name, amount_due, due_date, frequency, category_id, priority, description } = data;
+        // 🟢 FIX: Destructure new fields
+        const { userId, name, amount_due, due_date, frequency, category_id, priority, description, recurring_day, end_date } = data;
+
         return db.query(`
-            INSERT INTO planned_expense 
-            (user_id, name, amount_due, due_date, frequency, category_id, priority, description, status)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
-            RETURNING *
-        `, [userId, name, amount_due, due_date, frequency, category_id, priority, description]);
+            INSERT INTO planned_expense
+            (user_id, name, amount_due, due_date, frequency, category_id, priority, description, status, recurring_day, end_date)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', $9, $10)
+                RETURNING *
+        `, [userId, name, amount_due, due_date, frequency, category_id, priority, description, recurring_day, end_date]);
     },
 
     // 🚀 CORE LOGIC: Paying a Bill with Smart Rollover (Daily/Weekly/Monthly/Yearly)

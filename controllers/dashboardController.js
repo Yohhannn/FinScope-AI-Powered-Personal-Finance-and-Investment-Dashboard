@@ -600,11 +600,14 @@ const DashboardController = {
 
     addPlannedExpense: async (req, res) => {
         try {
-            const { name, amount_due, due_date, frequency, category_id, priority, description } = req.body;
+            // 🟢 FIX: Added recurring_day and end_date to destructuring
+            const { name, amount_due, due_date, frequency, category_id, priority, description, recurring_day, end_date } = req.body;
             const userId = req.user.user_id;
 
             const result = await DashboardModel.createPlannedExpense({
-                userId, name, amount_due, due_date, frequency, category_id, priority, description
+                userId, name, amount_due, due_date, frequency, category_id, priority, description,
+                recurring_day, // 🟢 Pass to model
+                end_date       // 🟢 Pass to model
             });
             res.json(result.rows[0]);
         } catch (err) {
