@@ -640,6 +640,7 @@ const DashboardController = {
         }
     },
 
+
     deleteCategory: async (req, res) => {
         try {
             const { id } = req.params;
