@@ -35,6 +35,8 @@ router.put("/budget/:id/pin", authorize, DashboardController.toggleBudgetPin);
 router.get("/budget/:id/transactions", authorize, DashboardController.getBudgetHistory);
 router.get("/transactions", authorize, DashboardController.getAllTransactions);
 
+
+
 // ==========================
 // 5. GOALS
 // ==========================
@@ -67,6 +69,14 @@ router.delete("/category/:id", authorize, DashboardController.deleteCategory);
 
 router.post("/transfer", authorize, DashboardController.transferFunds);
 router.get("/analytics", authorize, DashboardController.getAnalyticsData);
+
+// ==========================
+// 7. PLANNED EXPENSES (BILLS)
+// ==========================
+router.get("/bills", authorize, DashboardController.getPlannedExpenses);
+router.post("/bills", authorize, DashboardController.addPlannedExpense);
+router.post("/bills/:id/pay", authorize, DashboardController.payPlannedExpense);
+router.delete("/bills/:id", authorize, DashboardController.deletePlannedExpense);
 
 
 module.exports = router;

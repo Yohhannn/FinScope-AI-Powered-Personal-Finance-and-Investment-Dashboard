@@ -583,6 +583,62 @@ const DashboardController = {
             res.status(500).json({ error: "Server Error" });
         }
     },
+    // ==========================
+    // 7. PLANNED EXPENSES
+    // ==========================
+
+    getPlannedExpenses: async (req, res) => {
+        try {
+            const userId = req.user.user_id;
+            const expenses = await DashboardModel.getPlannedExpenses(userId);
+            res.json(expenses.rows);
+        } catch (err) {
+            console.error(err.message);
+            res.status(500).json({ error: "Server Error" });
+        }
+    },
+
+    addPlannedExpense: async (req, res) => {
+        try {
+            const { name, amount_due, due_date, frequency, category_id, priority, description } = req.body;
+            const userId = req.user.user_id;
+
+            const result = await DashboardModel.createPlannedExpense({
+                userId, name, amount_due, due_date, frequency, category_id, priority, description
+            });
+            res.json(result.rows[0]);
+        } catch (err) {
+            console.error(err.message);
+            res.status(500).json({ error: err.message });
+        }
+    },
+
+    payPlannedExpense: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { wallet_id, amount } = req.body; // Amount user chooses to pay now
+            const userId = req.user.user_id;
+
+            const result = await DashboardModel.payPlannedExpense(userId, id, wallet_id, amount);
+            res.json({ message: "Payment successful", expense: result });
+        } catch (err) {
+            console.error(err.message);
+            const status = err.message.includes("Insufficient") ? 400 : 500;
+            res.status(status).json({ error: err.message });
+        }
+    },
+
+    deletePlannedExpense: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const userId = req.user.user_id;
+            await DashboardModel.deletePlannedExpense(id, userId);
+            res.json({ message: "Bill deleted" });
+        } catch (err) {
+            console.error(err.message);
+            res.status(500).json({ error: "Server Error" });
+        }
+    },
 
     deleteCategory: async (req, res) => {
         try {

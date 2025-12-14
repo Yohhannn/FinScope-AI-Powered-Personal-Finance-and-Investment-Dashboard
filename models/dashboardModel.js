@@ -548,6 +548,94 @@ const DashboardModel = {
                 RETURNING *
         `, [status, goalId]);
     },
+    // ==========================
+    // 🟢 6. PLANNED EXPENSES (BILLS)
+    // ==========================
+
+    getPlannedExpenses: async (userId) => {
+        return db.query(`
+            SELECT pe.*, c.name as category_name
+            FROM planned_expense pe
+            LEFT JOIN category c ON pe.category_id = c.category_id
+            WHERE pe.user_id = $1
+            ORDER BY pe.due_date ASC
+        `, [userId]);
+    },
+
+    createPlannedExpense: async (data) => {
+        const { userId, name, amount_due, due_date, frequency, category_id, priority, description } = data;
+        return db.query(`
+            INSERT INTO planned_expense 
+            (user_id, name, amount_due, due_date, frequency, category_id, priority, description, status)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
+            RETURNING *
+        `, [userId, name, amount_due, due_date, frequency, category_id, priority, description]);
+    },
+
+    // 🚀 CORE LOGIC: Paying a Bill
+    payPlannedExpense: async (userId, expenseId, walletId, amount) => {
+        const client = await db.pool.connect();
+        try {
+            await client.query('BEGIN');
+
+            // 1. Get Expense Details
+            const expRes = await client.query('SELECT * FROM planned_expense WHERE planned_expense_id = $1 AND user_id = $2 FOR UPDATE', [expenseId, userId]);
+            if (expRes.rows.length === 0) throw new Error("Bill not found");
+            const bill = expRes.rows[0];
+
+            // 2. Get Wallet Details
+            const walletRes = await client.query('SELECT balance, name FROM wallet WHERE wallet_id = $1 AND user_id = $2 FOR UPDATE', [walletId, userId]);
+            if (walletRes.rows.length === 0) throw new Error("Wallet not found");
+            const wallet = walletRes.rows[0];
+
+            const payAmount = parseFloat(amount);
+
+            // 3. Check Funds
+            if (parseFloat(wallet.balance) < payAmount) {
+                throw new Error(`Insufficient funds in ${wallet.name}`);
+            }
+
+            // 4. Deduct from Wallet
+            await client.query('UPDATE wallet SET balance = balance - $1 WHERE wallet_id = $2', [payAmount, walletId]);
+
+            // 5. Create Real Transaction Record
+            await client.query(`
+                INSERT INTO transaction (name, amount, type, wallet_id, category_id, transaction_date, description)
+                VALUES ($1, $2, 'expense', $3, $4, CURRENT_DATE, $5)
+            `, [bill.name, payAmount, walletId, bill.category_id, `Payment for bill: ${bill.name}`]);
+
+            // 6. Update Planned Expense Status
+            // logic: If total paid >= due, mark as paid.
+            const newAmountPaid = parseFloat(bill.amount_paid) + payAmount;
+            let newStatus = bill.status;
+
+            if (newAmountPaid >= parseFloat(bill.amount_due)) {
+                newStatus = 'paid';
+            } else {
+                newStatus = 'partial';
+            }
+
+            const updatedBill = await client.query(`
+                UPDATE planned_expense 
+                SET amount_paid = $1, status = $2 
+                WHERE planned_expense_id = $3 
+                RETURNING *
+            `, [newAmountPaid, newStatus, expenseId]);
+
+            await client.query('COMMIT');
+            return updatedBill.rows[0];
+
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    },
+
+    deletePlannedExpense: async (id, userId) => {
+        return db.query('DELETE FROM planned_expense WHERE planned_expense_id = $1 AND user_id = $2', [id, userId]);
+    },
 
     updateCategory: async (id, name) => {
         return db.query(`UPDATE category SET name=$1 WHERE category_id=$2 RETURNING *`, [name, id]);
@@ -555,6 +643,7 @@ const DashboardModel = {
     deleteCategory: async (id, userId) => {
         return db.query('DELETE FROM category WHERE category_id = $1 AND user_id = $2', [id, userId]);
     }
+
 };
 
 module.exports = DashboardModel;
