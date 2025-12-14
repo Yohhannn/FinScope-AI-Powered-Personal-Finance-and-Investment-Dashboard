@@ -272,6 +272,19 @@ const DashboardModel = {
         return db.query('DELETE FROM planned_expense WHERE planned_expense_id = $1 AND user_id = $2', [id, userId]);
     },
 
+    // Add this inside DashboardModel object
+    getTransactionsByBillName: async (userId, billName) => {
+        return db.query(`
+            SELECT t.*, w.name as wallet_name
+            FROM transaction t
+            JOIN wallet w ON t.wallet_id = w.wallet_id
+            WHERE w.user_id = $1 
+              AND t.name = $2 
+              AND t.type = 'expense'
+            ORDER BY t.transaction_date DESC
+        `, [userId, billName]);
+    },
+
     // ==========================================
     // 🟢 4. STANDARD CRUD HELPERS
     // ==========================================

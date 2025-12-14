@@ -77,6 +77,7 @@ router.get("/bills", authorize, DashboardController.getPlannedExpenses);
 router.post("/bills", authorize, DashboardController.addPlannedExpense);
 router.post("/bills/:id/pay", authorize, DashboardController.payPlannedExpense);
 router.delete("/bills/:id", authorize, DashboardController.deletePlannedExpense);
+router.get("/bills/:id/history", authorize, DashboardController.getBillHistory);
 
 
 module.exports = router;

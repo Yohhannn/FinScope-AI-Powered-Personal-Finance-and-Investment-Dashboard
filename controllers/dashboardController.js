@@ -598,6 +598,27 @@ const DashboardController = {
         }
     },
 
+    // Add this inside DashboardController object
+    getBillHistory: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const userId = req.user.user_id;
+
+            // 1. Get the bill first to know its name
+            const billRes = await db.query('SELECT name FROM planned_expense WHERE planned_expense_id = $1', [id]);
+            if (billRes.rows.length === 0) return res.status(404).json({ error: "Bill not found" });
+
+            const billName = billRes.rows[0].name;
+
+            // 2. Find transactions with that name
+            const history = await DashboardModel.getTransactionsByBillName(userId, billName);
+            res.json(history.rows);
+        } catch (err) {
+            console.error(err);
+            res.status(500).json({ error: "Server Error" });
+        }
+    },
+
     addPlannedExpense: async (req, res) => {
         try {
             // 🟢 FIX: Added recurring_day and end_date to destructuring
